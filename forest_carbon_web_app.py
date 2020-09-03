@@ -14,18 +14,25 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 
+# biomass transfer coefficients
+DECAY_TC = 0.5
+LL_PRODUCTS_TC = (1-DECAY_TC) * 0.5
+SL_PRODUCTS_TC = (1-DECAY_TC) * 0.4
+BIOENERGY_TC = (1-DECAY_TC) * 0.1
+
+
 def make_slider_makers(min, max, step_size):
     return {x: f'{x} years' for x in range(min, max+1, step_size)}
 
 
 distribution_selections = html.Div(
-            id='left-column',
-            className="four columns",
+    className='row',
+    children=[
+        html.Div(
+            className="six columns",
             children=[
-                html.H6("Explore how re-growth rates and product \
-                        lifetimes can affect carbon emissions."),
-                'Mean age of managed forest (e.g. changing growth rate by \
-                    fertilization, brush clearing and improved re-planting):',
+                dcc.Markdown('**Mean age of managed forest** (e.g. changing growth rate by \
+                    fertilization, brush clearing and improved re-planting):'),
                 dcc.Slider(
                     id='regrowth-slider',
                     min=55,
@@ -36,7 +43,7 @@ distribution_selections = html.Div(
                 ),
                 html.Div(id='regrowth-selection'),
                 html.Br(),
-                'Biomass decay half-life:',
+                dcc.Markdown('**Biomass decay half-life**:'),
                 dcc.Slider(
                     id='biomass-decay',
                     min=15,
@@ -47,8 +54,12 @@ distribution_selections = html.Div(
                 ),
                 html.Div(id='decay-selection'),
                 html.Br(),
-                'short-lived product half-life: (e.g. improving \
-                    waste paper and packaging recycling rates)',
+            ]),
+        html.Div(
+            className='six columns',
+            children=[
+                dcc.Markdown('**Short-lived product half-life**: (e.g. improving \
+                    waste paper and packaging recycling rates)'),
                 dcc.Slider(
                     id='short-lived',
                     min=0,
@@ -59,9 +70,9 @@ distribution_selections = html.Div(
                 ),
                 html.Div(id='short-selection'),
                 html.Br(),
-                'long-lived product half-life: (e.g. increasing \
+                dcc.Markdown('**Long-lived product half-life**: (e.g. increasing \
                     the durability of wood products, and \
-                        their reuse in second generation products',
+                        their reuse in second generation products'),
                 dcc.Slider(
                     id='long-lived',
                     min=30,
@@ -72,7 +83,64 @@ distribution_selections = html.Div(
                 ),
                 html.Div(id='long-selection'),
                 html.Br(),
-                ])
+            ])])
+
+
+transfer_coefficients = html.Div(
+    className='four columns',
+    children=[
+        html.Br(),
+        html.Br(),
+        html.Br(),
+        html.Br(),
+        html.Br(),
+        html.Br(),
+        html.Br(),
+        html.Br(),
+        html.H5("Explore how changing how biomass is used affects carbon emissions."),
+        dcc.Markdown('**Biomass decay:**'),
+        dcc.Input(
+            id='biomass-decay-transfer',
+            placeholder='Enter a value between 0-1...',
+            type='number',
+            min=0,
+            max=1,
+            step=0.05,
+            value=str(DECAY_TC)
+        ),
+        dcc.Markdown('**Long-lived products:**'),
+        dcc.Input(
+            id='long-lived-products-transfer',
+            placeholder='Enter a value between 0-1...',
+            type='number',
+            min=0,
+            max=1,
+            step=0.05,
+            value=LL_PRODUCTS_TC
+        ),
+        dcc.Markdown('**Short-lived products:**'),
+        dcc.Input(
+            id='short-lived-products-transfer',
+            placeholder='Enter a value between 0-1...',
+            type='number',
+            min=0,
+            max=1,
+            step=0.05,
+            value=SL_PRODUCTS_TC
+        ),
+        dcc.Markdown('**Bioenergy:**'),
+        dcc.Input(
+            id='bioenergy-transfer',
+            placeholder='Enter a value between 0-1...',
+            type='number',
+            min=0,
+            max=1,
+            step=0.05,
+            value=BIOENERGY_TC
+        ),
+    ]
+)
+
 
 GWP_calculation = html.Div(
     id='dynamic-GWP-result',
@@ -104,10 +172,15 @@ carbon_balance_figure = html.Div(
 app.layout = html.Div([
     html.H1("Above ground forest carbon dynamics from harvesting."),
     html.Div([
-        distribution_selections,
-        carbon_balance_figure
+        transfer_coefficients,
+        carbon_balance_figure,
         ], className='row'),
+    html.Br(),
+    html.H6("Explore how re-growth rates and product \
+                lifetimes can affect carbon emissions."),
+    html.Div([distribution_selections], className='row'),
     html.Div(id='annual-carbon-flux', style={'display': 'none'}),
+    html.Div(id='transfer-coefficients', style={'display': 'none'})
 
 ])
 
@@ -144,6 +217,22 @@ def update_longlived_selection(input_value):
     return 'Output: {}'.format(input_value)
 
 
+
+def validate_transfer_coefficients(
+        decay_tc, bioenergy_tc, short_products_tc, long_products_tc):
+    total_transfer = np.sum(
+        [
+            float(decay_tc),
+            float(bioenergy_tc),
+            float(short_products_tc),
+            float(long_products_tc)])
+    if total_transfer == 1:
+        return json.dumps([decay_tc, bioenergy_tc, short_products_tc, long_products_tc])
+    else:
+        return None
+
+
+
 @app.callback(
     [
         Output(component_id='carbon-balance-figure', component_property='figure'),
@@ -154,18 +243,26 @@ def update_longlived_selection(input_value):
         Input(component_id='biomass-decay', component_property='value'),
         Input(component_id='short-lived', component_property='value'),
         Input(component_id='long-lived', component_property='value'),
+        Input(component_id='biomass-decay-transfer', component_property='value'),
+        Input(component_id='bioenergy-transfer', component_property='value'),
+        Input(component_id='short-lived-products-transfer', component_property='value'),
+        Input(component_id='long-lived-products-transfer', component_property='value'),
     ]
 )
-def update_figure(mean_forest, mean_decay, mean_short, mean_long):
+def update_figure(
+    mean_forest, mean_decay, mean_short, mean_long,
+    decay_tc, bioenergy_tc, short_products_tc, long_products_tc
+):
     forest_regrowth = CarbonFlux(
         mean_forest, 1.7, 1000, 'forest regrowth', 1, emission=False
         )
-    decay = CarbonFlux(mean_decay, 2, 1000, 'biomass decay', 0.5)
-    energy = CarbonFlux(1, 1.05, 1000, 'energy', 0.5*0.1)
+    decay = CarbonFlux(mean_decay, 2, 1000, 'biomass decay', float(decay_tc))
+    energy = CarbonFlux(1, 1.05, 1000, 'energy', float(bioenergy_tc))
     short_lived = CarbonFlux(
-        mean_short, 1.5, 1000, 'short-lived products', 0.5 * 0.4
+        mean_short, 1.5, 1000, 'short-lived products', float(short_products_tc)
         )
-    long_lived = CarbonFlux(mean_long, 1.5, 1000, 'long-lived products', 0.5 * 0.5)
+    long_lived = CarbonFlux(
+        mean_long, 1.5, 1000, 'long-lived products', float(long_products_tc))
 
     data = {
         'forest_regrowth': forest_regrowth,
@@ -180,6 +277,8 @@ def update_figure(mean_forest, mean_decay, mean_short, mean_long):
     return fig, json.dumps(net_annual_carbon_flux.tolist())
 
 
+
+
 @app.callback(
     Output(component_id='dynamic-GWP-result', component_property='children'),
     [
@@ -187,7 +286,7 @@ def update_figure(mean_forest, mean_decay, mean_short, mean_long):
     ]
 )
 def update_GWP(net_annual_carbon_flux):
-    
+
     net_annual_carbon_flux = json.loads(net_annual_carbon_flux)
     # AGWP is the cumulative radiative forcing at time t after the emission
     AGWP = AGWP_CO2(np.arange(0, 101))
@@ -195,7 +294,6 @@ def update_GWP(net_annual_carbon_flux):
     dynamic_AGWP_100 = np.sum(AGWP_from_0_to_100)
     dynamic_GWP_100 = dynamic_AGWP_100 / AGWP_CO2(100)
     return "GWP 100 for net carbon flux: {:.2f} kg CO2 eq".format(dynamic_GWP_100)
-
 
 
 if __name__ == '__main__':
