@@ -4,7 +4,7 @@ import numpy as np
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 
 from forest_carbon import CarbonFlux, CarbonModel
 from climate_metrics import AGWP_CO2
@@ -13,6 +13,179 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
+
+####################################
+# Carbon balance figure
+#####################################
+GWP_calculation = html.Div(
+    id='dynamic-GWP-result',
+    style={'text-align': 'center', 'font-weight': 'bold'},
+    )
+
+GWP_explanation = html.Div(
+    style={'text-align': 'center'},
+    children=[
+        "text",
+        html.A("Link", href='www.ipcc.ch/report/ar5/wg1/'),
+        "text"]
+)
+
+carbon_balance_figure = html.Div(
+            id='right-column',
+            className="eight columns",
+            children=[
+                html.H5("Cumulative carbon emissions and removals."),
+                html.P(
+                    "By changing the area under the 'net C flux' curve, the \
+                    climate effect is altered by increasing or decreasing \
+                        the amount of carbon in the atmosphere."),
+                GWP_calculation,
+                dcc.Graph(id='carbon-balance-figure'),
+                GWP_explanation
+                    ])
+
+
+@app.callback(
+    Output(component_id='regrowth-selection', component_property='children'),
+    [Input(component_id='regrowth-slider', component_property='value')]
+)
+def update_regrowth_selection(input_value):
+    return 'Output: {}'.format(input_value)
+
+
+@app.callback(
+    Output(component_id='decay-selection', component_property='children'),
+    [Input(component_id='biomass-decay', component_property='value')]
+)
+def update_decay_selection(input_value):
+    return 'Output: {}'.format(input_value)
+
+
+@app.callback(
+    Output(component_id='short-selection', component_property='children'),
+    [Input(component_id='short-lived', component_property='value')]
+)
+def update_shortlived_selection(input_value):
+    return 'Output: {}'.format(input_value)
+
+
+@app.callback(
+    Output(component_id='long-selection', component_property='children'),
+    [Input(component_id='long-lived', component_property='value')]
+)
+def update_longlived_selection(input_value):
+    return 'Output: {}'.format(input_value)
+
+
+########################################
+# GWP text inserted above figure
+########################################
+
+@app.callback(
+    Output(component_id='dynamic-GWP-result', component_property='children'),
+    [Input(component_id='annual-carbon-flux', component_property='children')]
+)
+def update_GWP(net_annual_carbon_flux):
+
+    net_annual_carbon_flux = json.loads(net_annual_carbon_flux)
+    # AGWP is the cumulative radiative forcing at time t after the emission
+    AGWP = AGWP_CO2(np.arange(0, 101))
+    AGWP_from_0_to_100 = np.flip(AGWP[0:101]) * net_annual_carbon_flux[0:101]
+    dynamic_AGWP_100 = np.sum(AGWP_from_0_to_100)
+    dynamic_GWP_100 = dynamic_AGWP_100 / AGWP_CO2(100)
+    return "GWP 100 for net carbon flux: \
+        {:.2f} kg CO2 eq".format(dynamic_GWP_100)
+
+
+##############################
+# transfer_coefficients inputs
+##############################
+
+# initial values for biomass transfer coefficients
+DECAY_TC = 0.5
+LL_PRODUCTS_TC = (1-DECAY_TC) * 0.5
+SL_PRODUCTS_TC = (1-DECAY_TC) * 0.4
+BIOENERGY_TC = (1-DECAY_TC) * 0.1
+
+transfer_coefficients_input = html.Div(
+    className='four columns',
+    children=[
+        html.H5(
+            "Explore how changing the way biomass is used affects carbon emissions."),
+        dcc.Markdown('**Biomass decay:**'),
+        dcc.Input(
+            id='biomass-decay-transfer',
+            placeholder='Enter a value between 0-1...',
+            type='number',
+            min=0,
+            max=1,
+            step=0.05,
+            value=str(DECAY_TC)
+        ),
+        dcc.Markdown('**Long-lived products:**'),
+        dcc.Input(
+            id='long-lived-products-transfer',
+            placeholder='Enter a value between 0-1...',
+            type='number',
+            min=0,
+            max=1,
+            step=0.05,
+            value=LL_PRODUCTS_TC
+        ),
+        dcc.Markdown('**Short-lived products:**'),
+        dcc.Input(
+            id='short-lived-products-transfer',
+            placeholder='Enter a value between 0-1...',
+            type='number',
+            min=0,
+            max=1,
+            step=0.05,
+            value=SL_PRODUCTS_TC
+        ),
+        dcc.Markdown('**Bioenergy:**'),
+        dcc.Input(
+            id='bioenergy-transfer',
+            placeholder='Enter a value between 0-1...',
+            type='number',
+            min=0,
+            max=1,
+            step=0.05,
+            value=BIOENERGY_TC
+        ),
+    ]
+)
+
+
+@app.callback(
+    [
+        Output('transfer-coefficient-validation', 'children'),
+        Output('transfer-coefficients', 'children')
+    ],
+    [
+        Input(component_id='biomass-decay-transfer', component_property='value'),
+        Input(component_id='bioenergy-transfer', component_property='value'),
+        Input(component_id='short-lived-products-transfer', component_property='value'),
+        Input(component_id='long-lived-products-transfer', component_property='value'),
+    ]
+)
+def validate_transfer_coefficients(
+        decay_tc, bioenergy_tc, short_products_tc, long_products_tc):
+    total_transfer = np.sum(
+        [
+            float(decay_tc),
+            float(bioenergy_tc),
+            float(short_products_tc),
+            float(long_products_tc)])
+    if total_transfer == 1:
+        return (
+            json.dumps('True'),
+            json.dumps([decay_tc, bioenergy_tc, short_products_tc, long_products_tc])
+        )
+    else:
+        return (
+            json.dumps('False'),
+            None
+        )
 
 
 #############################
@@ -128,180 +301,6 @@ def update_figure_with_slider_values(
     fig = carbon_model.plot_carbon_balance()
     net_annual_carbon_flux = carbon_model.net_annual_carbon_flux
     return fig, json.dumps(net_annual_carbon_flux.tolist())
-
-
-####################################
-# Carbon balance figure
-#####################################
-GWP_calculation = html.Div(
-    id='dynamic-GWP-result',
-    style={'text-align': 'center', 'font-weight': 'bold'},
-    )
-
-GWP_explanation = html.Div(
-    style={'text-align': 'center'},
-    children=[
-        "text",
-        html.A("Link", href='www.ipcc.ch/report/ar5/wg1/'),
-        "text"]
-)
-
-carbon_balance_figure = html.Div(
-            id='right-column',
-            className="eight columns",
-            children=[
-                html.H5("Cumulative carbon emissions and removals."),
-                html.P(
-                    "By changing the area under the 'net C flux' curve, the \
-                    climate effect is altered by increasing or decreasing \
-                        the amount of carbon in the atmosphere."),
-                GWP_calculation,
-                dcc.Graph(id='carbon-balance-figure'),
-                GWP_explanation
-                    ])
-
-
-@app.callback(
-    Output(component_id='regrowth-selection', component_property='children'),
-    [Input(component_id='regrowth-slider', component_property='value')]
-)
-def update_regrowth_selection(input_value):
-    return 'Output: {}'.format(input_value)
-
-
-@app.callback(
-    Output(component_id='decay-selection', component_property='children'),
-    [Input(component_id='biomass-decay', component_property='value')]
-)
-def update_decay_selection(input_value):
-    return 'Output: {}'.format(input_value)
-
-
-@app.callback(
-    Output(component_id='short-selection', component_property='children'),
-    [Input(component_id='short-lived', component_property='value')]
-)
-def update_shortlived_selection(input_value):
-    return 'Output: {}'.format(input_value)
-
-
-@app.callback(
-    Output(component_id='long-selection', component_property='children'),
-    [Input(component_id='long-lived', component_property='value')]
-)
-def update_longlived_selection(input_value):
-    return 'Output: {}'.format(input_value)
-
-
-##############################
-# transfer_coefficients inputs
-##############################
-
-# initial values for biomass transfer coefficients
-DECAY_TC = 0.5
-LL_PRODUCTS_TC = (1-DECAY_TC) * 0.5
-SL_PRODUCTS_TC = (1-DECAY_TC) * 0.4
-BIOENERGY_TC = (1-DECAY_TC) * 0.1
-
-transfer_coefficients_input = html.Div(
-    className='four columns',
-    children=[
-        html.H5("Explore how changing the way biomass is used affects carbon emissions."),
-        dcc.Markdown('**Biomass decay:**'),
-        dcc.Input(
-            id='biomass-decay-transfer',
-            placeholder='Enter a value between 0-1...',
-            type='number',
-            min=0,
-            max=1,
-            step=0.05,
-            value=str(DECAY_TC)
-        ),
-        dcc.Markdown('**Long-lived products:**'),
-        dcc.Input(
-            id='long-lived-products-transfer',
-            placeholder='Enter a value between 0-1...',
-            type='number',
-            min=0,
-            max=1,
-            step=0.05,
-            value=LL_PRODUCTS_TC
-        ),
-        dcc.Markdown('**Short-lived products:**'),
-        dcc.Input(
-            id='short-lived-products-transfer',
-            placeholder='Enter a value between 0-1...',
-            type='number',
-            min=0,
-            max=1,
-            step=0.05,
-            value=SL_PRODUCTS_TC
-        ),
-        dcc.Markdown('**Bioenergy:**'),
-        dcc.Input(
-            id='bioenergy-transfer',
-            placeholder='Enter a value between 0-1...',
-            type='number',
-            min=0,
-            max=1,
-            step=0.05,
-            value=BIOENERGY_TC
-        ),
-    ]
-)
-
-
-@app.callback(
-    [
-        Output('transfer-coefficient-validation', 'children'),
-        Output('transfer-coefficients', 'children')
-    ],
-    [
-        Input(component_id='biomass-decay-transfer', component_property='value'),
-        Input(component_id='bioenergy-transfer', component_property='value'),
-        Input(component_id='short-lived-products-transfer', component_property='value'),
-        Input(component_id='long-lived-products-transfer', component_property='value'),
-    ]
-)
-def validate_transfer_coefficients(
-        decay_tc, bioenergy_tc, short_products_tc, long_products_tc):
-    total_transfer = np.sum(
-        [
-            float(decay_tc),
-            float(bioenergy_tc),
-            float(short_products_tc),
-            float(long_products_tc)])
-    if total_transfer == 1:
-        return (
-            json.dumps('True'),
-            json.dumps([decay_tc, bioenergy_tc, short_products_tc, long_products_tc])
-        )
-    else:
-        return (
-            json.dumps('False'),
-            None
-        )
-
-
-########################################
-# GWP value inserted above figure
-########################################
-
-@app.callback(
-    Output(component_id='dynamic-GWP-result', component_property='children'),
-    [
-        Input(component_id='annual-carbon-flux', component_property='children'),
-    ]
-)
-def update_GWP(net_annual_carbon_flux):
-
-    net_annual_carbon_flux = json.loads(net_annual_carbon_flux)
-    # AGWP is the cumulative radiative forcing at time t after the emission
-    AGWP = AGWP_CO2(np.arange(0, 101))
-    AGWP_from_0_to_100 = np.flip(AGWP[0:101]) * net_annual_carbon_flux[0:101]
-    dynamic_AGWP_100 = np.sum(AGWP_from_0_to_100)
-    dynamic_GWP_100 = dynamic_AGWP_100 / AGWP_CO2(100)
-    return "GWP 100 for net carbon flux: {:.2f} kg CO2 eq".format(dynamic_GWP_100)
 
 
 ####################################
