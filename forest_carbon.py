@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.stats import lognorm
 import plotly.graph_objects as go
 
 
@@ -18,7 +19,16 @@ class CarbonFlux():
 
     The implementation assumes a lognormal distribution."""
 
-    def __init__(self, mean, sd, size, name, flow_fraction, range_=(0, 121), emission=True):
+    def __init__(
+        self,
+        mean,
+        sd,
+        size,
+        name,
+        flow_fraction,
+        range_=(0, 121),
+        emission=True,
+        random=False):
         """
         Parameters
         -----------------
@@ -33,8 +43,11 @@ class CarbonFlux():
         flow_fraction : float
             fraction of input or output carbon flow [0, 1]
         range_ : tuple
-            upper and lower bounds of plot range
+            upper and lower bounds of x-axis
         emission : bool
+            whether carbon flux is an emission or an removal
+        random : bool
+            whether distribution should be randomly sampled or not
 
         """
         self.mean = mean
@@ -46,15 +59,24 @@ class CarbonFlux():
         self.emission = emission
         self.color = colors[self.name]
 
-        rvts = np.random.lognormal(
-            np.log(self.mean), np.log(self.sd), size=self.size)
+        if random:
+            rvts = np.random.lognormal(
+                np.log(self.mean), np.log(self.sd), size=self.size)
 
-        self.pdf, self.bins = np.histogram(
-            rvts, bins=range_[1]-range_[0], range=self.range_, density=True)
+            self.pdf, bins = np.histogram(
+                rvts, bins=range_[1]-range_[0], range=self.range_, density=True)
 
-        # self.bins = 0.5 * (bins[:-1] + bins[1:])
-        bin_width = np.abs(self.bins[0] - self.bins[1])
-        self.cdf = np.cumsum(self.pdf) * bin_width
+            # bin len is 1 more than pdf, so we shorten by 1
+            bins = 0.5 * (bins[:-1] + bins[1:]) - 0.5
+            self.x = bins
+            bin_width = np.abs(bins[0] - bins[1])
+            self.cdf = np.cumsum(self.pdf) * bin_width
+        else:
+            self.x = np.arange(self.range_[0], self.range_[1])
+            self.pdf = lognorm.pdf(x=self.x, s=np.log(self.sd), scale=self.mean, loc=0)
+            self.cdf = lognorm.cdf(x=self.x, s=np.log(self.sd), scale=self.mean, loc=0)
+
+        # emissions are positive, removals are negative
         if not self.emission:
             self.pdf = -self.pdf
             self.cdf = -self.cdf
@@ -72,7 +94,7 @@ class CarbonFlux():
             y_label = f'Annual C removal from {self.name}'
         fig = go.Figure()
         fig.add_trace(
-            go.Bar(x=self.bins, y=self.pdf*self.flow_fraction,
+            go.Bar(x=self.x, y=self.pdf*self.flow_fraction,
                    name=self.name, marker_color=self.color))
         fig.update_layout(
             barmode='relative', yaxis_title=y_label, xaxis_title='years')
@@ -88,7 +110,7 @@ class CarbonFlux():
 
         fig = go.Figure()
         fig.add_trace(
-            go.Scatter(x=self.bins, y=self.cdf*self.flow_fraction,
+            go.Scatter(x=self.x, y=self.cdf*self.flow_fraction,
                        name=self.name, marker_color=self.color))
         fig.update_layout(yaxis_title=y_label, xaxis_title='years')
 
@@ -109,6 +131,7 @@ class CarbonModel():
         self.net_annual_carbon_flux = self._get_net_annual_carbon_flux()
 
     def plot_carbon_balance(self):
+        """Cumulative annual carbon emissions."""
         fig = None
         for carbon_flux in self.carbon_flux_datasets.values():
             if fig is None:
@@ -154,6 +177,10 @@ class CarbonModel():
         for carbon_flux in self.carbon_flux_datasets.values():
             if net_flux is None:
                 net_flux = np.copy(carbon_flux.pdf * carbon_flux.flow_fraction)
+                print(f'carbon_flux.name: {carbon_flux.name}')
+                print(f'flux: {carbon_flux.pdf[0:5] * carbon_flux.flow_fraction}')
             else:
                 net_flux += carbon_flux.pdf * carbon_flux.flow_fraction
+                print(f'carbon_flux.name: {carbon_flux.name}')
+                print(f'flux: {carbon_flux.pdf[0:5] * carbon_flux.flow_fraction}')
         return net_flux
