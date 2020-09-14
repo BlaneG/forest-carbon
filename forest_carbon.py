@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.stats import lognorm
+from scipy.stats import gamma
 import plotly.graph_objects as go
 
 
@@ -17,7 +17,7 @@ colors = {
 class CarbonFlux():
     """An object to hold carbon flux data.
 
-    The implementation assumes a lognormal distribution."""
+    The implementation assumes a gamma distribution."""
 
     def __init__(
         self,
@@ -28,7 +28,8 @@ class CarbonFlux():
         flow_fraction,
         range_=(0, 121),
         emission=True,
-        random=False):
+        random=False,
+        step_size=0.1):
         """
         Parameters
         -----------------
@@ -46,9 +47,8 @@ class CarbonFlux():
             upper and lower bounds of x-axis
         emission : bool
             whether carbon flux is an emission or an removal
-        random : bool
-            whether distribution should be randomly sampled or not
-
+        step_size : float
+            increment size for x-axis
         """
         self.mean = mean
         self.sd = sd
@@ -59,22 +59,14 @@ class CarbonFlux():
         self.emission = emission
         self.color = colors[self.name]
 
-        if random:
-            rvts = np.random.lognormal(
-                np.log(self.mean), np.log(self.sd), size=self.size)
 
-            self.pdf, bins = np.histogram(
-                rvts, bins=range_[1]-range_[0], range=self.range_, density=True)
-
-            # bin len is 1 more than pdf, so we shorten by 1
-            bins = 0.5 * (bins[:-1] + bins[1:]) - 0.5
-            self.x = bins
-            bin_width = np.abs(bins[0] - bins[1])
-            self.cdf = np.cumsum(self.pdf) * bin_width
-        else:
-            self.x = np.arange(self.range_[0], self.range_[1])
-            self.pdf = lognorm.pdf(x=self.x, s=np.log(self.sd), scale=self.mean, loc=0)
-            self.cdf = lognorm.cdf(x=self.x, s=np.log(self.sd), scale=self.mean, loc=0)
+        # a step size of 1 will cause a pdf mass balance error when
+        # mean is <=2.
+        self.x = np.arange(self.range_[0], self.range_[1], step=step_size)
+        a = self.mean**2/self.sd**2
+        scale = self.mean/(self.mean**2/self.sd**2)
+        self.pdf = gamma.pdf(x=self.x, a=a, scale=scale, loc=0)
+        self.cdf = gamma.cdf(x=self.x, a=a, scale=scale, loc=0)
 
         # emissions are positive, removals are negative
         if not self.emission:
@@ -118,15 +110,20 @@ class CarbonFlux():
 
 
 class CarbonModel():
-    def __init__(self, carbon_flux_datasets, name):
+    def __init__(self, carbon_flux_datasets, x, name, initial_carbon):
         """
         Parameters
         -----------
         carbon_flux_datasets : dict[CarbonFlux]
+        x : np.array
+            time horizon for model
+        name: str
         """
         self.carbon_flux_datasets = carbon_flux_datasets
+        self.x = x
         self.name = name
-        self._validate_forest_to_product_transfer_coeficients()
+        self.initial_carbon = initial_carbon
+        self._validate_forest_to_product_transfer_coefficients()
         self.net_cumulative_carbon_flux = self._get_net_cumulative_carbon_flux()
         self.net_annual_carbon_flux = self._get_net_annual_carbon_flux()
 
@@ -147,21 +144,23 @@ class CarbonModel():
         return fig
 
     def add_net_carbon_balance_to_figure(self, fig):
-        net_cumulative_carbon_flux = self.net_cumulative_carbon_flux
         new_fig = go.Figure(
             go.Scatter(
-                y=net_cumulative_carbon_flux,
+                x=self.x,
+                y=self.net_cumulative_carbon_flux,
                 name='Net C flux',
                 marker_color='black',
                 line_dash='dash'))
         fig.add_trace(new_fig.data[0])
 
-    def _validate_forest_to_product_transfer_coeficients(self):
+    def _validate_forest_to_product_transfer_coefficients(self):
         sum_of_outputs = self.carbon_flux_datasets['biomass_decay'].flow_fraction\
                          + self.carbon_flux_datasets['energy'].flow_fraction\
                          + self.carbon_flux_datasets['short_lived_products'].flow_fraction\
                          + self.carbon_flux_datasets['long_lived_products'].flow_fraction
-        assert sum_of_outputs == 1, f"transfers from forest expected to sum to 1 not {sum_of_outputs}"
+        assert np.isclose(sum_of_outputs, self.initial_carbon), \
+            f"transfers from forest expected to sum to {self.initial_carbon}\
+                not {sum_of_outputs}"
 
     def _get_net_cumulative_carbon_flux(self):
         net_flux = None
@@ -177,10 +176,6 @@ class CarbonModel():
         for carbon_flux in self.carbon_flux_datasets.values():
             if net_flux is None:
                 net_flux = np.copy(carbon_flux.pdf * carbon_flux.flow_fraction)
-                print(f'carbon_flux.name: {carbon_flux.name}')
-                print(f'flux: {carbon_flux.pdf[0:5] * carbon_flux.flow_fraction}')
             else:
                 net_flux += carbon_flux.pdf * carbon_flux.flow_fraction
-                print(f'carbon_flux.name: {carbon_flux.name}')
-                print(f'flux: {carbon_flux.pdf[0:5] * carbon_flux.flow_fraction}')
         return net_flux
