@@ -1,6 +1,8 @@
 import json
+from typing import Tuple
 
 import numpy as np
+from scipy.integrate import trapz
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
@@ -14,30 +16,68 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 
+# Initialization
+STEP = 0.1
+MANAGED=True
+
+# lifetimes
+MEAN_FOREST = 50
+MEAN_DECAY = 20
+MEAN_BIOENERGY = 1
+MEAN_SHORT = 5
+MEAN_LONG = 50
+
+# Initial Carbon
+if MANAGED:
+    # for managed forests the 
+    HARVEST_YEAR = 90
+    HARVEST_INDEX = int(HARVEST_YEAR/STEP)
+    forest_regrowth = CarbonFlux(
+        MEAN_FOREST, MEAN_FOREST * 0.45, 1000, 'forest regrowth',
+        1, emission=False, step_size=STEP
+        )
+    INITIAL_CARBON = -forest_regrowth.cdf[HARVEST_INDEX]
+
+# biomass transfer coefficients
+DECAY_TC = 0.5
+LL_PRODUCTS_TC = (1-DECAY_TC) * 0.5
+SL_PRODUCTS_TC = (1-DECAY_TC) * 0.4
+BIOENERGY_TC = (1-DECAY_TC) * 0.1
+
+
 ################################
 # helpers
 ################################
 def generate_flux_data(
         mean_forest, mean_decay, mean_short, mean_long,
-        decay_tc, bioenergy_tc, short_products_tc, long_products_tc):
+        decay_tc, bioenergy_tc, short_products_tc, long_products_tc
+        ) -> Tuple[dict, np.array]:
     forest_regrowth = CarbonFlux(
-        mean_forest, 1.7, 1000, 'forest regrowth', 1, emission=False
+        mean_forest, mean_forest * 0.45, 1000, 'forest regrowth',
+        1, emission=False, step_size=STEP
         )
-    decay = CarbonFlux(mean_decay, 2, 1000, 'biomass decay', float(decay_tc))
-    energy = CarbonFlux(1, 1.05, 1000, 'energy', float(bioenergy_tc))
+    decay = CarbonFlux(
+        mean_decay, mean_decay*0.5, 1000, 'biomass decay',
+        INITIAL_CARBON * float(decay_tc), step_size=STEP)
+    energy = CarbonFlux(
+        1, 0.5, 1000, 'energy',
+        INITIAL_CARBON * float(bioenergy_tc), step_size=STEP)
     short_lived = CarbonFlux(
-        mean_short, 1.5, 1000, 'short-lived products', float(short_products_tc)
+        mean_short, mean_short*0.75, 1000, 'short-lived products',
+        INITIAL_CARBON * float(short_products_tc), step_size=STEP
         )
     long_lived = CarbonFlux(
-        mean_long, 1.5, 1000, 'long-lived products', float(long_products_tc))
+        mean_long, mean_long*0.5, 1000, 'long-lived products',
+        INITIAL_CARBON * float(long_products_tc), step_size=STEP)
 
+    x = forest_regrowth.x
     data = {
         'forest_regrowth': forest_regrowth,
         'biomass_decay': decay,
         'energy': energy,
         'short_lived_products': short_lived,
         'long_lived_products': long_lived}
-    return data
+    return data, x
 
 
 ####################################
@@ -51,9 +91,9 @@ GWP_calculation = html.Div(
 GWP_explanation = html.Div(
     style={'text-align': 'center'},
     children=[
-        "text",
-        html.A("Link", href='www.ipcc.ch/report/ar5/wg1/', target='_blank'),
-        "text"]
+        "See IPCC, WG1, Chapter 8 for more information on ",
+        html.A("GWP", href='http://www.ipcc.ch/report/ar5/wg1/', target='_blank'),
+        "."]
 )
 
 carbon_balance_figure = html.Div(
@@ -62,9 +102,11 @@ carbon_balance_figure = html.Div(
             children=[
                 html.H5("Cumulative carbon emissions and removals."),
                 html.P(
-                    "By changing the area under the 'net C flux' curve, the \
-                    climate effect is altered by increasing or decreasing \
-                        the amount of carbon in the atmosphere."),
+                    "By changing the area under the 'net C flux', the \
+                    climate response (measured in kg CO2 equivalent using \
+                    GWP) of using forest biomass is altered as a result \
+                    of increasing or decreasing  the amount of carbon in \
+                    the atmosphere."),
                 GWP_calculation,
                 dcc.Graph(id='carbon-balance-figure'),
                 GWP_explanation
@@ -115,11 +157,12 @@ def update_GWP(net_annual_carbon_flux):
 
     net_annual_carbon_flux = json.loads(net_annual_carbon_flux)
     # AGWP is the cumulative radiative forcing at time t after the emission
-    AGWP = AGWP_CO2(np.arange(0, 101))
-    AGWP_from_0_to_100 = np.flip(AGWP[0:101]) * net_annual_carbon_flux[0:101]
-    dynamic_AGWP_100 = np.sum(AGWP_from_0_to_100)
+    x = np.arange(0, 101, STEP)
+    AGWP = AGWP_CO2(x)
+    AGWP_from_0_to_100 = np.flip(AGWP[0:len(x)]) * net_annual_carbon_flux[0:len(x)]
+    dynamic_AGWP_100 = trapz(AGWP_from_0_to_100, x)
     dynamic_GWP_100 = dynamic_AGWP_100 / AGWP_CO2(100)
-    return "GWP 100 for net carbon flux: \
+    return "Global warming potential (100) of net carbon flux: \
         {:.2f} kg CO2 eq".format(dynamic_GWP_100)
 
 
@@ -127,20 +170,16 @@ def update_GWP(net_annual_carbon_flux):
 # transfer_coefficients inputs
 ##############################
 
-# initial values for biomass transfer coefficients
-DECAY_TC = 0.5
-LL_PRODUCTS_TC = (1-DECAY_TC) * 0.5
-SL_PRODUCTS_TC = (1-DECAY_TC) * 0.4
-BIOENERGY_TC = (1-DECAY_TC) * 0.1
-
 transfer_coefficients_input = html.Div(
     className='four columns',
+    style={'border-right': 'double'},
     children=[
         html.H5(
             "Explore how changing the way biomass is used affects carbon emissions.",
-            style={'padding-top': '5em'}),
+            style={'padding-top': '2em'}),
         html.P('When trees are harvested, the biomass at the harvest site \
-            is transferred to different pools including'),
+            is transferred to different \'pools\' including harvest residues\
+            and products like paper and lumber used buildings.'),
         html.P(
             'Values must sum to 1. Hit the "Update" button \
                 below when all transfer coefficients have been updated.'),
@@ -176,16 +215,22 @@ transfer_coefficients_input = html.Div(
             value=SL_PRODUCTS_TC
         ),
         html.P('Bioenergy:', style={'font-weight': 'bold'}),
-        dcc.Input(
-            id='bioenergy-transfer',
-            placeholder='Enter a value between 0-1...',
-            type='number',
-            min=0,
-            max=1,
-            step=0.01,
-            value=BIOENERGY_TC
-        ),
-        html.Button('Update', id='update-TCs-button', n_clicks=0),
+        html.Div([
+            dcc.Input(
+                id='bioenergy-transfer',
+                placeholder='Enter a value between 0-1...',
+                type='number',
+                min=0,
+                max=1,
+                step=0.01,
+                value=BIOENERGY_TC
+            )]),
+        html.Div([
+            html.Button(
+                'Update', id='update-TCs-button',
+                n_clicks=0, style={'background-color': 'black', 'color': 'white'}),
+            ],
+            style={'padding-top': '1em'}),
         html.P(id='validation-text', style={'color': 'red'}),
         dcc.ConfirmDialog(
             id='validate-dialog',
@@ -224,12 +269,12 @@ def update_figure(
     total_transfer = validate_transfer_coefficients(
         decay_tc, bioenergy_tc, short_products_tc, long_products_tc
     )
-    if total_transfer == 1:
-        data = generate_flux_data(
+    if np.isclose(total_transfer, 1):
+        data, x = generate_flux_data(
             mean_forest, mean_decay, mean_short, mean_long,
             decay_tc, bioenergy_tc, short_products_tc, long_products_tc)
 
-        carbon_model = CarbonModel(data, 'harvest')
+        carbon_model = CarbonModel(data, x=x, name='harvest', initial_carbon=INITIAL_CARBON)
         fig = carbon_model.plot_carbon_balance()
         net_annual_carbon_flux = carbon_model.net_annual_carbon_flux
         return fig, json.dumps(net_annual_carbon_flux.tolist()), '', False
@@ -269,22 +314,22 @@ distribution_selections = html.Div(
                     fertilization, brush clearing and improved re-planting):'),
                 dcc.Slider(
                     id='regrowth-slider',
-                    min=55,
-                    max=65,
+                    min=MEAN_FOREST-15,
+                    max=MEAN_FOREST+15,
                     step=1,
-                    value=60,
-                    marks=make_slider_makers(55, 65, 5)
+                    value=MEAN_FOREST,
+                    marks=make_slider_makers(MEAN_FOREST-15, MEAN_FOREST+15, 5)
                 ),
                 html.Div(id='regrowth-selection'),
                 html.Br(),
                 dcc.Markdown('**Harvest residue decay half-life**:'),
                 dcc.Slider(
                     id='biomass-decay',
-                    min=15,
-                    max=25,
+                    min=MEAN_DECAY-5,
+                    max=MEAN_DECAY+5,
                     step=1,
-                    value=20,
-                    marks=make_slider_makers(15, 25, 2)
+                    value=MEAN_DECAY,
+                    marks=make_slider_makers(MEAN_DECAY-5, MEAN_DECAY+5, 2)
                 ),
                 html.Div(id='decay-selection'),
                 html.Br(),
@@ -297,10 +342,10 @@ distribution_selections = html.Div(
                 dcc.Slider(
                     id='short-lived',
                     min=0,
-                    max=10,
+                    max=MEAN_SHORT+5,
                     step=1,
-                    value=5,
-                    marks=make_slider_makers(0, 10, 2),
+                    value=MEAN_SHORT,
+                    marks=make_slider_makers(0, MEAN_SHORT+5, 2),
                 ),
                 html.Div(id='short-selection'),
                 html.Br(),
@@ -309,11 +354,11 @@ distribution_selections = html.Div(
                         their reuse in second generation products'),
                 dcc.Slider(
                     id='long-lived',
-                    min=30,
-                    max=70,
+                    min=MEAN_LONG-20,
+                    max=MEAN_LONG+20,
                     step=1,
-                    value=50,
-                    marks=make_slider_makers(30, 70, 10)
+                    value=MEAN_LONG,
+                    marks=make_slider_makers(MEAN_LONG-20, MEAN_SHORT+20, 10)
                 ),
                 html.Div(id='long-selection'),
                 html.Br(),
@@ -330,8 +375,10 @@ app.layout = html.Div([
         carbon_balance_figure,
         ], className='row'),
     html.Br(),
-    html.H6("Explore how re-growth rates and product \
-                lifetimes can affect carbon emissions."),
+    html.H6(
+        "Explore how re-growth rates and product \
+                lifetimes can affect carbon emissions.",
+        style={'border-top': 'double'},),
     html.Div([distribution_selections], className='row'),
     html.Div(id='annual-carbon-flux', style={'display': 'none'}),
     html.Div(id='transfer-coefficients', style={'display': 'none'}),
