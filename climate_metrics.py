@@ -1,8 +1,10 @@
 """
-This module implements International Governmnetal Panel """
+This module implements methods for computing climate metrics as described
+by the International Governmental Panel on Climate Change."""
 
 
 import numpy as np
+from scipy.integrate import trapz
 
 # W m–2 ppbv-1
 radiative_efficiency_ppbv = {"co2": 1.37e-5, "ch4": 3.63e-4, "n2o": 3.00e-3}
@@ -64,7 +66,7 @@ def CO2_irf(time_horizon):
 
 
 def impulse_response_function(time_horizon, ghg):
-    """The impulse response function for different GHGs.
+    """The impulse response function for non-CO2/CH4 GHGs.
 
     References
     -----------
@@ -111,3 +113,40 @@ def AGWP_CH4_no_CO2(t):
     radiative_efficiency = get_radiative_efficiency_kg("ch4") * (1+indirect_O3+indirect_H2O)
 
     return radiative_efficiency * life_time * (1 - np.exp(-t/life_time))
+
+
+def dynamic_GWP(time_horizon, net_emissions):
+    """Computes GWP for a vector of net_emissions over a time_horizon.
+
+    Parameters
+    ---------------
+    time_horizon : int
+        The time horizon over which radiative forcing is computed.
+    net_emissions : np.array
+        Annual emissions/removals.
+
+    TODO
+    -----------------
+    update the method to take an arbitrary AGWP_GHG method
+
+    References
+    --------------
+    Levassuer et al. 2010.  https://pubs.acs.org/doi/10.1021/es9030003
+    Cherubini et al. 2011.  https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.1757-1707.2011.01102.x
+
+
+    """
+    # we use a step of 0.1 to reduce the integration error
+    t = np.arange(0, time_horizon+1, 0.1)
+    # AGWP for each time step
+    AGWP = AGWP_CO2(t)
+    # A convolution: flip AGWP, multiple the two vectors and sum the result
+    # Technically we are simplying multiplying AGWP_100 to net emissions from
+    # year 0, multiplying AGWP_99 to net emissions from year 1 and so on and
+    # then summing the result to compute the total radiative forcing due
+    # to the net emission flux over the time horizon.
+    AGWP_from_0_to_t = net_emissions[0:len(t)] * np.flip(AGWP[0:len(t)])
+    dynamic_AGWP_t = trapz(AGWP_from_0_to_t, t)
+
+    dynamic_GWP_t = dynamic_AGWP_t / AGWP_CO2(100)
+    return dynamic_GWP_t
