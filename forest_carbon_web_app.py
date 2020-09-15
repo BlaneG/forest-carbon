@@ -9,7 +9,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output, State
 
 from forest_carbon import CarbonFlux, CarbonModel
-from climate_metrics import AGWP_CO2
+from climate_metrics import AGWP_CO2, dynamic_GWP
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -157,11 +157,8 @@ def update_GWP(net_annual_carbon_flux):
 
     net_annual_carbon_flux = json.loads(net_annual_carbon_flux)
     # AGWP is the cumulative radiative forcing at time t after the emission
-    x = np.arange(0, 101, STEP)
-    AGWP = AGWP_CO2(x)
-    AGWP_from_0_to_100 = np.flip(AGWP[0:len(x)]) * net_annual_carbon_flux[0:len(x)]
-    dynamic_AGWP_100 = trapz(AGWP_from_0_to_100, x)
-    dynamic_GWP_100 = dynamic_AGWP_100 / AGWP_CO2(100)
+    dynamic_GWP_100 = dynamic_GWP(100, net_annual_carbon_flux)
+
     return "Global warming potential (100) of net carbon flux: \
         {:.2f} kg CO2 eq".format(dynamic_GWP_100)
 
