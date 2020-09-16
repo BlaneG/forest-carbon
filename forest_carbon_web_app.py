@@ -14,6 +14,7 @@ from climate_metrics import AGWP_CO2, dynamic_GWP
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+server = app.server  # required for Heroku deployment
 
 
 # Initialization
