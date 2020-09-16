@@ -100,7 +100,7 @@ carbon_balance_figure = html.Div(
             id='right-column',
             className="eight columns",
             children=[
-                html.H5("Cumulative carbon emissions and removals."),
+                html.H3("Cumulative carbon emissions and removals."),
                 html.P(
                     "By changing the area under the 'net C flux', the \
                     climate response (measured in kg CO2 equivalent using \
@@ -169,17 +169,20 @@ def update_GWP(net_annual_carbon_flux):
 
 transfer_coefficients_input = html.Div(
     className='four columns',
-    style={'border-right': 'double'},
+    style={'border-right': 'double', 'padding-right': '0.5em'},
     children=[
-        html.H5(
-            "Explore how changing the way biomass is used affects carbon emissions.",
-            style={'padding-top': '2em'}),
-        html.P('When trees are harvested, the biomass at the harvest site \
+        html.H3(
+            "Explore how changing how biomass is used affects carbon emissions.",
+            ),
+        html.P('When trees are harvested, the biomass \
             is transferred to different \'pools\' including harvest residues\
             and products like paper and lumber used buildings.'),
-        html.P(
-            'Values must sum to 1. Hit the "Update" button \
-                below when all transfer coefficients have been updated.'),
+        html.H6('Harvested biomass transfers'),
+        html.P('These values represent the ratio of harvested biomass \
+               transferred to different \'pools\'.'),
+        html.P('Values must sum to 1. Hit the "Update" button below when all \
+               transfer coefficients have been updated.',
+               style={'padding-top': '1em'}),
         html.P('Harvest residue decay:', style={'font-weight': 'bold'}),
         html.Div(id='TC-table'),
         dcc.Input(
@@ -355,7 +358,7 @@ distribution_selections = html.Div(
                     max=MEAN_LONG+20,
                     step=1,
                     value=MEAN_LONG,
-                    marks=make_slider_makers(MEAN_LONG-20, MEAN_SHORT+20, 10)
+                    marks=make_slider_makers(MEAN_LONG-20, MEAN_LONG+20, 10)
                 ),
                 html.Div(id='long-selection'),
                 html.Br(),
@@ -372,7 +375,7 @@ app.layout = html.Div([
         carbon_balance_figure,
         ], className='row'),
     html.Br(),
-    html.H6(
+    html.H3(
         "Explore how re-growth rates and product \
                 lifetimes can affect carbon emissions.",
         style={'border-top': 'double'},),

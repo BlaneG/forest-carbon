@@ -150,7 +150,10 @@ class CarbonModel():
                 y=self.net_cumulative_carbon_flux,
                 name='Net C flux',
                 marker_color='black',
-                line_dash='dash'))
+                line_dash='dash',
+                fill='tozeroy',
+                fillcolor='rgba(213,163,163,0.15)',
+                ))
         fig.add_trace(new_fig.data[0])
 
     def _validate_forest_to_product_transfer_coefficients(self):
