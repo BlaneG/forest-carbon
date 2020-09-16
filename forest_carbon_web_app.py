@@ -103,47 +103,19 @@ carbon_balance_figure = html.Div(
             children=[
                 html.H3("Cumulative carbon emissions and removals."),
                 html.P(
-                    "By changing the area under the 'net C flux', the \
-                    climate response (measured in kg CO2 equivalent using \
-                    GWP) of using forest biomass is altered as a result \
-                    of increasing or decreasing  the amount of carbon in \
-                    the atmosphere."),
+                    "By changing how biomass is used, this can influence the \
+                    area under the 'net C flux' curve. The area under this \
+                    curve represents the additional carbon that is \
+                    temporarily added to the atmosphere.  We can estimate the \
+                    climate impact of this temporary increase in atmospheric \
+                    carbon using a modification to the well-known global \
+                    warming potential (GWP) method which is measured in \
+                    units of CO2 equivalents. Strategies that store more \
+                    carbon result in a net GWP benefit."),
                 GWP_calculation,
                 dcc.Graph(id='carbon-balance-figure'),
                 GWP_explanation
                     ])
-
-
-@app.callback(
-    Output(component_id='regrowth-selection', component_property='children'),
-    [Input(component_id='regrowth-slider', component_property='value')]
-)
-def update_regrowth_selection(input_value):
-    return 'Output: {}'.format(input_value)
-
-
-@app.callback(
-    Output(component_id='decay-selection', component_property='children'),
-    [Input(component_id='biomass-decay', component_property='value')]
-)
-def update_decay_selection(input_value):
-    return 'Output: {}'.format(input_value)
-
-
-@app.callback(
-    Output(component_id='short-selection', component_property='children'),
-    [Input(component_id='short-lived', component_property='value')]
-)
-def update_shortlived_selection(input_value):
-    return 'Output: {}'.format(input_value)
-
-
-@app.callback(
-    Output(component_id='long-selection', component_property='children'),
-    [Input(component_id='long-lived', component_property='value')]
-)
-def update_longlived_selection(input_value):
-    return 'Output: {}'.format(input_value)
 
 
 ########################################
@@ -167,71 +139,98 @@ def update_GWP(net_annual_carbon_flux):
 ##############################
 # transfer_coefficients inputs
 ##############################
+TC_row_1 = html.Div(
+    className='row',
+    children=[
+        html.Div(
+            className='six columns',
+            children=[
+                html.P('Harvest residue decay:', style={'font-weight': 'bold'}),
+                dcc.Input(
+                    id='biomass-decay-transfer',
+                    placeholder='Enter a value between 0-1...',
+                    type='number',
+                    min=0,
+                    max=1,
+                    step=0.01,
+                    value=str(DECAY_TC)
+                )
+                ]),
+        html.Div(
+            className='six columns',
+            children=[
+                html.P('Long-lived products:', style={'font-weight': 'bold'}),
+                dcc.Input(
+                    id='long-lived-products-transfer',
+                    placeholder='Enter a value between 0-1...',
+                    type='number',
+                    min=0,
+                    max=1,
+                    step=0.01,
+                    value=LL_PRODUCTS_TC
+                )
+                ])
+    ])
+
+TC_row_2 = html.Div(
+    className='row',
+    children=[
+        html.Div(
+            className='six columns',
+            children=[
+                html.P('Short-lived products:', style={'font-weight': 'bold'}),
+                dcc.Input(
+                    id='short-lived-products-transfer',
+                    placeholder='Enter a value between 0-1...',
+                    type='number',
+                    min=0,
+                    max=1,
+                    step=0.01,
+                    value=SL_PRODUCTS_TC
+                )
+                ]),
+        html.Div(
+            className='six columns',
+            children=[
+                html.P('Bioenergy:', style={'font-weight': 'bold'}),
+                dcc.Input(
+                    id='bioenergy-transfer',
+                    placeholder='Enter a value between 0-1...',
+                    type='number',
+                    min=0,
+                    max=1,
+                    step=0.01,
+                    value=BIOENERGY_TC
+                )
+            ])
+    ])
 
 transfer_coefficients_input = html.Div(
     className='four columns',
     style={'border-right': 'double', 'padding-right': '0.5em'},
     children=[
         html.H3(
-            "Explore how changing how biomass is used affects carbon emissions.",
+            "Explore how changing the way biomass is used affects carbon emissions.",
             ),
-        html.P('When trees are harvested, the biomass \
+        html.P('When trees are harvested, biomass \
             is transferred to different \'pools\' including harvest residues\
             and products like paper and lumber used buildings.'),
         html.H6('Harvested biomass transfers'),
         html.P('These values represent the ratio of harvested biomass \
-               transferred to different \'pools\'.'),
-        html.P('Values must sum to 1. Hit the "Update" button below when all \
+               transferred to different \'pools\'. Increasing the ratio \
+                of biomass transferred to longer storage pools helps to \
+                reduce the amount of carbon emitted to the atmosphere.'),
+        html.P('Values below must sum to 1. Hit the "Update" button below when all \
                transfer coefficients have been updated.',
                style={'padding-top': '1em'}),
-        html.P('Harvest residue decay:', style={'font-weight': 'bold'}),
-        html.Div(id='TC-table'),
-        dcc.Input(
-            id='biomass-decay-transfer',
-            placeholder='Enter a value between 0-1...',
-            type='number',
-            min=0,
-            max=1,
-            step=0.01,
-            value=str(DECAY_TC)
-        ),
-        html.P('Long-lived products:', style={'font-weight': 'bold'}),
-        dcc.Input(
-            id='long-lived-products-transfer',
-            placeholder='Enter a value between 0-1...',
-            type='number',
-            min=0,
-            max=1,
-            step=0.01,
-            value=LL_PRODUCTS_TC
-        ),
-        html.P('Short-lived products:', style={'font-weight': 'bold'}),
-        dcc.Input(
-            id='short-lived-products-transfer',
-            placeholder='Enter a value between 0-1...',
-            type='number',
-            min=0,
-            max=1,
-            step=0.01,
-            value=SL_PRODUCTS_TC
-        ),
-        html.P('Bioenergy:', style={'font-weight': 'bold'}),
-        html.Div([
-            dcc.Input(
-                id='bioenergy-transfer',
-                placeholder='Enter a value between 0-1...',
-                type='number',
-                min=0,
-                max=1,
-                step=0.01,
-                value=BIOENERGY_TC
-            )]),
+        TC_row_1,
+        TC_row_2,
         html.Div([
             html.Button(
                 'Update', id='update-TCs-button',
                 n_clicks=0, style={'background-color': 'black', 'color': 'white'}),
             ],
-            style={'padding-top': '1em'}),
+            style={'padding-top': '1em', 'text-align': 'center'}),
         html.P(id='validation-text', style={'color': 'red'}),
         dcc.ConfirmDialog(
             id='validate-dialog',
@@ -315,13 +314,12 @@ distribution_selections = html.Div(
                     fertilization, brush clearing and improved re-planting):'),
                 dcc.Slider(
                     id='regrowth-slider',
-                    min=MEAN_FOREST-15,
-                    max=MEAN_FOREST+15,
+                    min=MEAN_FOREST-5,
+                    max=MEAN_FOREST+5,
                     step=1,
                     value=MEAN_FOREST,
-                    marks=make_slider_makers(MEAN_FOREST-15, MEAN_FOREST+15, 5)
+                    marks=make_slider_makers(MEAN_FOREST-5, MEAN_FOREST+5, 5)
                 ),
-                html.Div(id='regrowth-selection'),
                 html.Br(),
                 dcc.Markdown('**Harvest residue decay half-life**:'),
                 dcc.Slider(
@@ -332,7 +330,6 @@ distribution_selections = html.Div(
                     value=MEAN_DECAY,
                     marks=make_slider_makers(MEAN_DECAY-5, MEAN_DECAY+5, 2)
                 ),
-                html.Div(id='decay-selection'),
                 html.Br(),
             ]),
         html.Div(
@@ -348,20 +345,18 @@ distribution_selections = html.Div(
                     value=MEAN_SHORT,
                     marks=make_slider_makers(0, MEAN_SHORT+5, 2),
                 ),
-                html.Div(id='short-selection'),
                 html.Br(),
                 dcc.Markdown('**Long-lived product half-life**: (e.g. increasing \
                     the durability of wood products, and \
                         their reuse in second generation products'),
                 dcc.Slider(
                     id='long-lived',
-                    min=MEAN_LONG-20,
-                    max=MEAN_LONG+20,
+                    min=MEAN_LONG-10,
+                    max=MEAN_LONG+10,
                     step=1,
                     value=MEAN_LONG,
-                    marks=make_slider_makers(MEAN_LONG-20, MEAN_LONG+20, 10)
+                    marks=make_slider_makers(MEAN_LONG-10, MEAN_LONG+10, 5)
                 ),
-                html.Div(id='long-selection'),
                 html.Br(),
             ])])
 

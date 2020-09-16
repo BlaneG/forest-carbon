@@ -138,7 +138,7 @@ class CarbonModel():
                 fig.add_trace(new_fig.data[0])
 
         fig.update_layout(
-            yaxis_title='Annual C emissions/removals', template='simple_white')
+            yaxis_title='Annual CO2 emissions/removals', template='simple_white')
         fig.update_yaxes(zeroline=True, zerolinewidth=2, zerolinecolor='grey')
         self.add_net_carbon_balance_to_figure(fig)
         return fig
