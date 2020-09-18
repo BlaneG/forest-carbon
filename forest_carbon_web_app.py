@@ -423,8 +423,8 @@ main_page = html.Div([
 ######################################
 app.layout = html.Div([
     dcc.Tabs([
-        dcc.Tab(label="About", children=[about]),
         dcc.Tab(label='Main page', children=[main_page]),
+        dcc.Tab(label="About", children=[about]),
         ])
 ])
 
