@@ -6,6 +6,7 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
+import dash_bootstrap_components as dbc
 
 from forest_carbon import CarbonFlux, CarbonModel
 from climate_metrics import dynamic_GWP
@@ -367,9 +368,39 @@ distribution_selections = html.Div(
 
 
 ####################################
-# compose application layout
-######################################
-app.layout = html.Div([
+# About tab
+####################################
+
+
+about = html.Div(
+    style={'padding-left': '25%', 'padding-right': '25%'},
+    children=[
+        html.H1("About"),
+        html.P("Humans have been dependent on biomass resources throughout our \
+            existence for food, clothing, shelter communication (paper) and \
+            sanitary products. This relationship has changed dramatically \
+            over time from our hunter-gather ancestors to the present."),
+        html.P("This site provides a high level tool to think about \
+            how changing the way we use forest biomass can influence \
+            the climate by increasing or decreasing the amount of carbon \
+            stored in forests and products.  The current focus of the site \
+            is on a single forest stand that is harvested and transferred \
+            into both dead biomass and products."),
+        html.H5("References"),
+        html.P(children=[
+            'The source code for this application is available on ', 
+            html.A('github', href='https://github.com/BlaneG/ghg-tools',
+                target='_blank'), '.']),
+        html.P()
+
+])
+
+
+
+####################################
+# main page layout
+###################################
+main_page = html.Div([
     html.H1("Above ground forest carbon dynamics from harvesting."),
     html.Div([
         transfer_coefficients_input,
@@ -386,6 +417,18 @@ app.layout = html.Div([
     html.Div(id='transfer-coefficient-validation', style={'display': 'none'})
 
 ])
+
+
+####################################
+# compose application layout
+######################################
+app.layout = html.Div([
+    dcc.Tabs([
+        dcc.Tab(label="About", children=[about]),
+        dcc.Tab(label='Main page', children=[main_page]),
+        ])
+])
+
 
 if __name__ == '__main__':
     app.run_server(debug=True)
