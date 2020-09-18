@@ -2,14 +2,13 @@ import json
 from typing import Tuple
 
 import numpy as np
-from scipy.integrate import trapz
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 
 from forest_carbon import CarbonFlux, CarbonModel
-from climate_metrics import AGWP_CO2, dynamic_GWP
+from climate_metrics import dynamic_GWP
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -19,7 +18,7 @@ server = app.server  # required for Heroku deployment
 
 # Initialization
 STEP = 0.1
-MANAGED=True
+MANAGED = True
 
 # lifetimes
 MEAN_FOREST = 50
@@ -93,7 +92,9 @@ GWP_explanation = html.Div(
     style={'text-align': 'center'},
     children=[
         "See IPCC, WG1, Chapter 8 for more information on ",
-        html.A("GWP", href='http://www.ipcc.ch/report/ar5/wg1/', target='_blank'),
+        html.A(
+            "GWP", href='http://www.ipcc.ch/report/ar5/wg1/',
+            target='_blank'),
         "."]
 )
 
@@ -145,7 +146,8 @@ TC_row_1 = html.Div(
         html.Div(
             className='six columns',
             children=[
-                html.P('Harvest residue decay:', style={'font-weight': 'bold'}),
+                html.P('Harvest residue decay:',
+                       style={'font-weight': 'bold'}),
                 dcc.Input(
                     id='biomass-decay-transfer',
                     placeholder='Enter a value between 0-1...',
@@ -210,7 +212,8 @@ transfer_coefficients_input = html.Div(
     style={'border-right': 'double', 'padding-right': '0.5em'},
     children=[
         html.H3(
-            "Explore how changing the way biomass is used affects carbon emissions.",
+            "Explore how changing the way biomass is used affects carbon \
+                emissions.",
             ),
         html.P('When trees are harvested, biomass \
             is transferred to different \'pools\' including harvest residues\
@@ -228,7 +231,8 @@ transfer_coefficients_input = html.Div(
         html.Div([
             html.Button(
                 'Update', id='update-TCs-button',
-                n_clicks=0, style={'background-color': 'black', 'color': 'white'}),
+                n_clicks=0,
+                style={'background-color': 'black', 'color': 'white'}),
             ],
             style={'padding-top': '1em', 'text-align': 'center'}),
         html.P(id='validation-text', style={'color': 'red'}),
@@ -274,7 +278,8 @@ def update_figure(
             mean_forest, mean_decay, mean_short, mean_long,
             decay_tc, bioenergy_tc, short_products_tc, long_products_tc)
 
-        carbon_model = CarbonModel(data, x=x, name='harvest', initial_carbon=INITIAL_CARBON)
+        carbon_model = CarbonModel(
+            data, x=x, name='harvest', initial_carbon=INITIAL_CARBON)
         fig = carbon_model.plot_carbon_balance()
         net_annual_carbon_flux = carbon_model.net_annual_carbon_flux
         return fig, json.dumps(net_annual_carbon_flux.tolist()), '', False
