@@ -1,5 +1,7 @@
 import json
 from typing import Tuple
+import sys
+sys.path.append('..')
 
 import numpy as np
 import dash
@@ -7,8 +9,8 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 
-from forest_carbon import CarbonFlux, CarbonModel
-from climate_metrics import dynamic_GWP
+from ghg_tools.forest_carbon import CarbonFlux, CarbonModel
+from ghg_tools.climate_metrics import dynamic_GWP
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -382,9 +384,9 @@ about = html.Div(
         html.P("This site provides a high level tool to think about \
             how changing the way we use forest biomass can influence \
             the climate by increasing or decreasing the amount of carbon \
-            stored in forests and products.  The current focus of the site \
-            is on a single forest stand that is harvested and transferred \
-            into both dead biomass and products."),
+            stored in forests and products. "),
+        html.P('The current site considers a single forest stand that is \
+            harvested and transferred into both dead biomass and products.'),
         html.H5("References"),
         html.P(children=[
             'The source code for this application is available on ', 

@@ -1,6 +1,6 @@
 import numpy as np
 
-from climate_metrics import AGWP_CO2, AGWP_CH4_no_CO2
+from ghg_tools.climate_metrics import AGWP_CO2, AGWP_CH4_no_CO2
 
 
 def test_AGWP_CO2():
