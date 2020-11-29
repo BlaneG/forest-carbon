@@ -115,7 +115,7 @@ def AGWP_CH4_no_CO2(t):
     return radiative_efficiency * life_time * (1 - np.exp(-t/life_time))
 
 
-def dynamic_GWP(time_horizon, net_emissions):
+def dynamic_GWP(time_horizon, net_emissions, step_size=0.1):
     """Computes GWP for a vector of net_emissions over a time_horizon.
 
     Parameters
@@ -136,8 +136,8 @@ def dynamic_GWP(time_horizon, net_emissions):
 
 
     """
-    # we use a step of 0.1 to reduce the integration error
-    t = np.arange(0, time_horizon+1, 0.1)
+    # A step of 0.1 is recommended to reduce the integration error
+    t = np.arange(0, time_horizon+1, step_size)
     # AGWP for each time step
     AGWP = AGWP_CO2(t)
     # A convolution: flip AGWP, multiple the two vectors and sum the result

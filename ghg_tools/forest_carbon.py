@@ -20,16 +20,16 @@ class CarbonFlux():
     The implementation assumes a gamma distribution."""
 
     def __init__(
-        self,
-        mean,
-        sd,
-        size,
-        name,
-        flow_fraction,
-        range_=(0, 121),
-        emission=True,
-        random=False,
-        step_size=0.1):
+            self,
+            mean,
+            sd,
+            name,
+            flow_fraction,
+            range_=(0, 121),
+            emission=True,
+            random=False,
+            step_size=0.1,
+            ):
         """
         Parameters
         -----------------
@@ -37,8 +37,6 @@ class CarbonFlux():
             geometric mean.
         sd : float
             geometric standard deviation
-        size : int
-            number of samples for creating distribution
         name : str
             name of carbon flux
         flow_fraction : float
@@ -52,7 +50,6 @@ class CarbonFlux():
         """
         self.mean = mean
         self.sd = sd
-        self.size = size
         self.name = name
         self.flow_fraction = flow_fraction
         self.range_ = range_

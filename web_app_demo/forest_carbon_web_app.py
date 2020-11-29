@@ -9,7 +9,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 
-from ghg_tools.forest_carbon import CarbonFlux, CarbonModel
+from ghg_tools.forest_carbon import CarbonFlux, CarbonModel, generate_flux_data
 from ghg_tools.climate_metrics import dynamic_GWP
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
@@ -29,13 +29,15 @@ MEAN_BIOENERGY = 1
 MEAN_SHORT = 5
 MEAN_LONG = 50
 
+HARVEST_YEAR = 90
+HARVEST_INDEX = int(HARVEST_YEAR/STEP)
+
 # Initial Carbon
 if MANAGED:
     # for managed forests the 
-    HARVEST_YEAR = 90
-    HARVEST_INDEX = int(HARVEST_YEAR/STEP)
+
     forest_regrowth = CarbonFlux(
-        MEAN_FOREST, MEAN_FOREST * 0.45, 1000, 'forest regrowth',
+        MEAN_FOREST, MEAN_FOREST * 0.45, 'forest regrowth',
         1, emission=False, step_size=STEP
         )
     INITIAL_CARBON = -forest_regrowth.cdf[HARVEST_INDEX]
@@ -55,21 +57,21 @@ def generate_flux_data(
         decay_tc, bioenergy_tc, short_products_tc, long_products_tc
         ) -> Tuple[dict, np.array]:
     forest_regrowth = CarbonFlux(
-        mean_forest, mean_forest * 0.45, 1000, 'forest regrowth',
+        mean_forest, mean_forest * 0.45, 'forest regrowth',
         1, emission=False, step_size=STEP
         )
     decay = CarbonFlux(
-        mean_decay, mean_decay*0.5, 1000, 'biomass decay',
+        mean_decay, mean_decay*0.5, 'biomass decay',
         INITIAL_CARBON * float(decay_tc), step_size=STEP)
     energy = CarbonFlux(
-        1, 0.5, 1000, 'energy',
+        1, 0.5, 'energy',
         INITIAL_CARBON * float(bioenergy_tc), step_size=STEP)
     short_lived = CarbonFlux(
-        mean_short, mean_short*0.75, 1000, 'short-lived products',
+        mean_short, mean_short*0.75, 'short-lived products',
         INITIAL_CARBON * float(short_products_tc), step_size=STEP
         )
     long_lived = CarbonFlux(
-        mean_long, mean_long*0.5, 1000, 'long-lived products',
+        mean_long, mean_long*0.5, 'long-lived products',
         INITIAL_CARBON * float(long_products_tc), step_size=STEP)
 
     x = forest_regrowth.x
@@ -133,7 +135,7 @@ def update_GWP(net_annual_carbon_flux):
 
     net_annual_carbon_flux = json.loads(net_annual_carbon_flux)
     # AGWP is the cumulative radiative forcing at time t after the emission
-    dynamic_GWP_100 = dynamic_GWP(100, net_annual_carbon_flux)
+    dynamic_GWP_100 = dynamic_GWP(100, net_annual_carbon_flux, step_size=STEP)
 
     return "Global warming potential (100) of net carbon flux: \
         {:.2f} kg CO2 eq".format(dynamic_GWP_100)
