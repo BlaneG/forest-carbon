@@ -9,7 +9,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 
-from ghg_tools.forest_carbon import CarbonFlux, CarbonModel, generate_flux_data
+from ghg_tools.forest_carbon import CarbonFlux, CarbonModel
 from ghg_tools.climate_metrics import dynamic_GWP
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
