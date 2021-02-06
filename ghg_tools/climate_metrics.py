@@ -133,13 +133,15 @@ def dynamic_GWP(time_horizon, net_emissions, step_size=0.1):
 
     References
     --------------
+    Fearnside et al. 2000.  https://link.springer.com/article/10.1023/A:1009625122628
+    Moura Costa et al. 2000.  https://link.springer.com/article/10.1023/A:1009697625521
     Levassuer et al. 2010.  https://pubs.acs.org/doi/10.1021/es9030003
     Cherubini et al. 2011.  https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.1757-1707.2011.01102.x
 
 
     """
     # A step of 0.1 is recommended to reduce the integration error
-    t = np.arange(0, time_horizon+1, step_size)
+    t = np.arange(0, time_horizon+step_size, step_size)
     # AGWP for each time step
     AGWP = AGWP_CO2(t)
     # A convolution: flip AGWP, multiple the two vectors and sum the result
@@ -147,10 +149,13 @@ def dynamic_GWP(time_horizon, net_emissions, step_size=0.1):
     # year 0, multiplying AGWP_99 to net emissions from year 1 and so on and
     # then summing the result to compute the total radiative forcing due
     # to the net emission flux over the time horizon.
+    if len(net_emissions) < len(t):
+        raise ValueError(
+            f"Shapes not aligned {net_emissions.shape}, {t.shape}.")
     dynamic_AGWP_t = convolve(
-        net_emissions[0:len(t)],
-        AGWP[0:len(t)],
+        net_emissions[0:len(t)+1],
+        AGWP[0:len(t)+1],
         mode='valid')
 
     dynamic_GWP_t = dynamic_AGWP_t / AGWP_CO2(100)
-    return dynamic_GWP_t
+    return dynamic_GWP_t[0]
