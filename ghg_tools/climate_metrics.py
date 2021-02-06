@@ -5,6 +5,7 @@ by the International Governmental Panel on Climate Change."""
 
 import numpy as np
 from scipy.integrate import trapz
+from scipy.signal import convolve
 
 # W m–2 ppbv-1
 radiative_efficiency_ppbv = {"co2": 1.37e-5, "ch4": 3.63e-4, "n2o": 3.00e-3}
@@ -110,7 +111,8 @@ def AGWP_CH4_no_CO2(t):
     indirect_O3 = 0.5
     indirect_H2O = 0.15
     life_time = 12.4
-    radiative_efficiency = get_radiative_efficiency_kg("ch4") * (1+indirect_O3+indirect_H2O)
+    radiative_efficiency = get_radiative_efficiency_kg("ch4") \
+        * (1+indirect_O3+indirect_H2O)
 
     return radiative_efficiency * life_time * (1 - np.exp(-t/life_time))
 
@@ -145,8 +147,10 @@ def dynamic_GWP(time_horizon, net_emissions, step_size=0.1):
     # year 0, multiplying AGWP_99 to net emissions from year 1 and so on and
     # then summing the result to compute the total radiative forcing due
     # to the net emission flux over the time horizon.
-    AGWP_from_0_to_t = net_emissions[0:len(t)] * np.flip(AGWP[0:len(t)])
-    dynamic_AGWP_t = trapz(AGWP_from_0_to_t, t)
+    dynamic_AGWP_t = convolve(
+        net_emissions[0:len(t)],
+        AGWP[0:len(t)],
+        mode='valid')
 
     dynamic_GWP_t = dynamic_AGWP_t / AGWP_CO2(100)
     return dynamic_GWP_t
