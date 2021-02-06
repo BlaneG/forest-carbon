@@ -6,3 +6,6 @@ forest_carbon_web_app.py: a [web application](https://forest-carbon-app.herokuap
 
 ## Development
 Tests can be run from the top level directory with `python -m pytest tests`.
+
+## Deployment
+The web_app_demo is deployed from Github using Heroku.  The Procfile points to the application from the main directory.
