@@ -25,7 +25,7 @@ class CarbonFlux():
             sd,
             name,
             flow_fraction,
-            range_=(0, 121),
+            range_=(0, 120),
             emission=True,
             random=False,
             step_size=0.1,
@@ -59,7 +59,7 @@ class CarbonFlux():
 
         # a step size of 1 will cause a pdf mass balance error when
         # mean is <=2.
-        self.x = np.arange(self.range_[0], self.range_[1], step=step_size)
+        self.x = np.arange(self.range_[0], self.range_[1]+step_size, step=step_size)
         a = self.mean**2/self.sd**2
         scale = self.mean/(self.mean**2/self.sd**2)
         self.pdf = gamma.pdf(x=self.x, a=a, scale=scale, loc=0)
