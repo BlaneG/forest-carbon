@@ -117,7 +117,7 @@ def AGWP_CH4_no_CO2(t):
     return radiative_efficiency * life_time * (1 - np.exp(-t/life_time))
 
 
-def dynamic_GWP(time_horizon, net_emissions, step_size=0.1):
+def dynamic_GWP(time_horizon, net_emissions, step_size=0.1, is_unit_impulse=False):
     """Computes GWP for a vector of net_emissions over a time_horizon.
 
     Parameters
@@ -126,6 +126,17 @@ def dynamic_GWP(time_horizon, net_emissions, step_size=0.1):
         The time horizon over which radiative forcing is computed.
     net_emissions : np.array
         Annual emissions/removals.
+    is_unit_impulse : bool
+        Specifies whether net_emissions is a scipy.signal.unit_impulse
+    
+
+    Notes
+    ---------------
+    net_emissions should not contain both unit_impulse and pdf emission
+    distributions due to numerical integration issues.  After numerical
+    integration, the output is re-normalized using the step_size when
+    net_emissions is_unit_impulse=False. When is_unit_impulse is true,
+    this normalization is not required.
 
     TODO
     -----------------
@@ -158,4 +169,14 @@ def dynamic_GWP(time_horizon, net_emissions, step_size=0.1):
         mode='valid')
 
     dynamic_GWP_t = dynamic_AGWP_t / AGWP_CO2(100)
-    return dynamic_GWP_t[0]
+
+    # If the input is not a unit_impulse, we have to re-normalize
+    # the result by the number of steps per year. An alternative
+    # approach for users to implement a emission using a uniform
+    # distribution (e.g. uniform.pdf(x, loc=emission_year, scale=0.1))
+    # One issue with this later approach is that the output can look
+    # strange when you plot the results because the pdf will spike to 10.
+    if is_unit_impulse:
+        return dynamic_GWP_t[0]
+    else:
+        return dynamic_GWP_t[0] * step_size
