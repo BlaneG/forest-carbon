@@ -1,4 +1,6 @@
 import numpy as np
+from scipy.integrate import trapz
+from scipy.stats import uniform
 
 from ghg_tools.climate_metrics import (
     AGWP_CO2,
@@ -51,19 +53,46 @@ def test_dynamic_GWP():
     time_step = 0.1
     emission = 1
     
-    # First test.
+    # First unit_pulse test.
     emission_year = 0
     expected_GWP_0, emission_pulse = compute_expected_dynamic_GWP(
         emission, emission_year, time_horizon, time_step)
-    actual_GWP_0 = dynamic_GWP(time_horizon, emission_pulse, time_step)
+    actual_GWP_0 = dynamic_GWP(
+        time_horizon,
+        emission_pulse,
+        time_step,
+        is_unit_impulse=True)
     result_0_isclose = np.isclose(expected_GWP_0, actual_GWP_0, rtol=1e-4)
     assert(result_0_isclose)
 
 
-    # Second test
+    # Second unit_pulse test
     emission_year = 25
     expected_GWP_25, emission_pulse = compute_expected_dynamic_GWP(
         emission, emission_year, time_horizon, time_step)
-    actual_GWP_25 = dynamic_GWP(time_horizon, emission_pulse, time_step)
+    actual_GWP_25 = dynamic_GWP(
+        time_horizon,
+        emission_pulse,
+        time_step,
+        is_unit_impulse=True)
     result_25_isclose = np.isclose(expected_GWP_25, actual_GWP_25, rtol=1e-4)
     assert(result_25_isclose)
+                        
+    # Third test, continuous emission pulse
+    t = np.arange(0, time_horizon+time_step, time_step)
+    emissions = uniform.pdf(t, scale=time_horizon)
+    actual_result = dynamic_GWP(
+            time_horizon,
+            emissions,
+            time_step,
+            is_unit_impulse=False)
+
+    # The sifting property leads to an equivalence between a convolution
+    # of a function (f) with a shifted function (g) to time tau, and a shifted
+    # function:  f(t)*g(t-tau) = f(t-tau)
+    # If we treat each annual emission (g) in year tau, AGWP(t)*emission(t-tau)
+    # can be represented as AGWP(100-tau).  For emissions at year 0 we apply
+    # AGWP(100), emissions at year 1 we apply AGWP(99), etc.
+    expected_result = trapz(emissions*np.flip(AGWP_CO2(t)), dx=0.1)/AGWP_CO2(100)
+    result_is_close = np.isclose(actual_result, expected_result, rtol=1e-3)
+    assert(result_is_close)
