@@ -1,5 +1,5 @@
 import json
-from typing import Tuple
+
 import sys
 sys.path.append('..')
 
@@ -9,8 +9,10 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 
-from ghg_tools.forest_carbon import CarbonFlux, CarbonModel
+from ghg_tools.forest_carbon import CarbonModel
 from ghg_tools.climate_metrics import dynamic_GWP
+
+from forest_carbon_model import generate_flux_data, INITIAL_CARBON, lifetimes, STEP
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -18,70 +20,11 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server  # required for Heroku deployment
 
 
-# Initialization
-STEP = 0.1
-MANAGED = True
-
-# lifetimes
-MEAN_FOREST = 50
-MEAN_DECAY = 20
-MEAN_BIOENERGY = 1
-MEAN_SHORT = 5
-MEAN_LONG = 50
-
-HARVEST_YEAR = 90
-HARVEST_INDEX = int(HARVEST_YEAR/STEP)
-
-# Initial Carbon
-if MANAGED:
-    # for managed forests the 
-
-    forest_regrowth = CarbonFlux(
-        MEAN_FOREST, MEAN_FOREST * 0.45, 'forest regrowth',
-        1, emission=False, step_size=STEP
-        )
-    INITIAL_CARBON = -forest_regrowth.cdf[HARVEST_INDEX]
-
 # biomass transfer coefficients
 DECAY_TC = 0.5
 LL_PRODUCTS_TC = (1-DECAY_TC) * 0.5
 SL_PRODUCTS_TC = (1-DECAY_TC) * 0.4
 BIOENERGY_TC = (1-DECAY_TC) * 0.1
-
-
-################################
-# helpers
-################################
-def generate_flux_data(
-        mean_forest, mean_decay, mean_short, mean_long,
-        decay_tc, bioenergy_tc, short_products_tc, long_products_tc
-        ) -> Tuple[dict, np.array]:
-    forest_regrowth = CarbonFlux(
-        mean_forest, mean_forest * 0.45, 'forest regrowth',
-        1, emission=False, step_size=STEP
-        )
-    decay = CarbonFlux(
-        mean_decay, mean_decay*0.5, 'biomass decay',
-        INITIAL_CARBON * float(decay_tc), step_size=STEP)
-    energy = CarbonFlux(
-        1, 0.5, 'energy',
-        INITIAL_CARBON * float(bioenergy_tc), step_size=STEP)
-    short_lived = CarbonFlux(
-        mean_short, mean_short*0.75, 'short-lived products',
-        INITIAL_CARBON * float(short_products_tc), step_size=STEP
-        )
-    long_lived = CarbonFlux(
-        mean_long, mean_long*0.5, 'long-lived products',
-        INITIAL_CARBON * float(long_products_tc), step_size=STEP)
-
-    x = forest_regrowth.x
-    data = {
-        'forest_regrowth': forest_regrowth,
-        'biomass_decay': decay,
-        'energy': energy,
-        'short_lived_products': short_lived,
-        'long_lived_products': long_lived}
-    return data, x
 
 
 ####################################
@@ -323,21 +266,25 @@ distribution_selections = html.Div(
                     fertilization, brush clearing and improved re-planting):'),
                 dcc.Slider(
                     id='regrowth-slider',
-                    min=MEAN_FOREST-5,
-                    max=MEAN_FOREST+5,
+                    min=lifetimes['MEAN_FOREST']-5,
+                    max=lifetimes['MEAN_FOREST']+5,
                     step=1,
-                    value=MEAN_FOREST,
-                    marks=make_slider_makers(MEAN_FOREST-5, MEAN_FOREST+5, 5)
+                    value=lifetimes['MEAN_FOREST'],
+                    marks=make_slider_makers(
+                        lifetimes['MEAN_FOREST']-5,
+                        lifetimes['MEAN_FOREST']+5, 5)
                 ),
                 html.Br(),
                 dcc.Markdown('**Harvest residue decay half-life**:'),
                 dcc.Slider(
                     id='biomass-decay',
-                    min=MEAN_DECAY-5,
-                    max=MEAN_DECAY+5,
+                    min=lifetimes['MEAN_DECAY']-5,
+                    max=lifetimes['MEAN_DECAY']+5,
                     step=1,
-                    value=MEAN_DECAY,
-                    marks=make_slider_makers(MEAN_DECAY-5, MEAN_DECAY+5, 2)
+                    value=lifetimes['MEAN_DECAY'],
+                    marks=make_slider_makers(
+                        lifetimes['MEAN_DECAY']-5,
+                        lifetimes['MEAN_DECAY']+5, 2)
                 ),
                 html.Br(),
             ]),
@@ -349,10 +296,11 @@ distribution_selections = html.Div(
                 dcc.Slider(
                     id='short-lived',
                     min=0,
-                    max=MEAN_SHORT+5,
+                    max=lifetimes['MEAN_SHORT']+5,
                     step=1,
-                    value=MEAN_SHORT,
-                    marks=make_slider_makers(0, MEAN_SHORT+5, 2),
+                    value=lifetimes['MEAN_SHORT'],
+                    marks=make_slider_makers(
+                        0, lifetimes['MEAN_SHORT']+5, 2),
                 ),
                 html.Br(),
                 dcc.Markdown('**Long-lived product half-life**: (e.g. increasing \
@@ -360,11 +308,13 @@ distribution_selections = html.Div(
                         their reuse in second generation products'),
                 dcc.Slider(
                     id='long-lived',
-                    min=MEAN_LONG-10,
-                    max=MEAN_LONG+10,
+                    min=lifetimes['MEAN_LONG']-10,
+                    max=lifetimes['MEAN_LONG']+10,
                     step=1,
-                    value=MEAN_LONG,
-                    marks=make_slider_makers(MEAN_LONG-10, MEAN_LONG+10, 5)
+                    value=lifetimes['MEAN_LONG'],
+                    marks=make_slider_makers(
+                        lifetimes['MEAN_LONG']-10,
+                        lifetimes['MEAN_LONG']+10, 5)
                 ),
                 html.Br(),
             ])])
