@@ -96,3 +96,4 @@ def test_dynamic_GWP():
     expected_result = trapz(emissions*np.flip(AGWP_CO2(t)), dx=0.1)/AGWP_CO2(100)
     result_is_close = np.isclose(actual_result, expected_result, rtol=1e-3)
     assert(result_is_close)
+    assert(np.isclose(actual_result, 0.5, atol=1e-1))
