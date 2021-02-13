@@ -21,10 +21,12 @@ lifetimes = dict(
 
 HARVEST_INDEX = int(lifetimes['HARVEST_YEAR']/STEP)
 
-# Initial Carbon
+# INITIAL_CARBON is the above ground carbon (as CO2) available
+# at the harvest age.  INITIAL_CARBON is used to ensure a
+# mass balance for the harvested carbon that is transferred into
+# different pools (energy, harvest residues, long-lived products,
+# etc.)
 if MANAGED:
-    # for managed forests the 
-
     forest_regrowth = CarbonFlux(
         lifetimes['MEAN_FOREST'], lifetimes['MEAN_FOREST'] * 0.45, 'forest regrowth',
         1, emission=False, step_size=STEP
