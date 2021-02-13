@@ -8,8 +8,9 @@ from scipy.integrate import trapz
 from scipy.signal import convolve
 
 # W m–2 ppbv-1
-radiative_efficiency_ppbv = {"co2": 1.37e-5, "ch4": 3.63e-4, "n2o": 3.00e-3}
-
+RADIATIVE_EFFICIENCY_ppbv = {"co2": 1.37e-5, "ch4": 3.63e-4, "n2o": 3.00e-3}
+COEFFICIENT_WEIGHTS = np.array([0.2173, 0.2240, 0.2824, 0.2763])
+TIME_SCALES = np.array([394.4, 36.54, 4.304])
 
 def ppbv_to_kg_conversion(ghg):
     """
@@ -34,7 +35,7 @@ def get_radiative_efficiency_kg(ghg):
     """Get the radiative efficiency of a GHG in W m–2 kg–1.
     """
     ppv_to_kg = ppbv_to_kg_conversion(ghg)
-    return ppv_to_kg * radiative_efficiency_ppbv[ghg]
+    return ppv_to_kg * RADIATIVE_EFFICIENCY_ppbv[ghg]
 
 
 def CO2_irf(time_horizon):
@@ -50,20 +51,18 @@ def CO2_irf(time_horizon):
     IPCC 2013. AR5, WG1, Chapter 8 Supplementary Material. Equation 8.SM.10
     https://www.ipcc.ch/report/ar5/wg1/
     """
-    a0 = 0.2173
-    a1 = 0.2240
-    a2 = 0.2824
-    a3 = 0.2763
 
-    t_1 = 394.4
-    t_2 = 36.54
-    t_3 = 4.304
 
-    exponential_1 = np.exp(-time_horizon/t_1)
-    exponential_2 = np.exp(-time_horizon/t_2)
-    exponential_3 = np.exp(-time_horizon/t_3)
+    exponential_1 = np.exp(-time_horizon/TIME_SCALES[0])
+    exponential_2 = np.exp(-time_horizon/TIME_SCALES[1])
+    exponential_3 = np.exp(-time_horizon/TIME_SCALES[3])
 
-    return a0 + a1*exponential_1 + a2*exponential_2 + a3*exponential_3
+    return (
+        COEFFICIENT_WEIGHTS[0]
+        + COEFFICIENT_WEIGHTS[1]*exponential_1
+        + COEFFICIENT_WEIGHTS[2]*exponential_2
+        + COEFFICIENT_WEIGHTS[3]*exponential_3
+    )
 
 
 def impulse_response_function(time_horizon, ghg):
@@ -86,19 +85,16 @@ def impulse_response_function(time_horizon, ghg):
 def AGWP_CO2(t):
     radiative_efficiency = get_radiative_efficiency_kg("co2")
 
-    a0 = 0.2173
-    a1 = 0.2240
-    a2 = 0.2824
-    a3 = 0.2763
 
-    t1 = 394.4
-    t2 = 36.54
-    t3 = 4.304
+    exponential_1 = 1 - np.exp(-t/TIME_SCALES[0])
+    exponential_2 = 1 - np.exp(-t/TIME_SCALES[1])
+    exponential_3 = 1 - np.exp(-t/TIME_SCALES[2])
+    cumulative_concentration = (
+        COEFFICIENT_WEIGHTS[0]*t
+        + COEFFICIENT_WEIGHTS[1]*TIME_SCALES[0]*exponential_1
+        + COEFFICIENT_WEIGHTS[2]*TIME_SCALES[1]*exponential_2
+        + COEFFICIENT_WEIGHTS[3]*TIME_SCALES[2]*exponential_3
 
-    exponential_1 = 1 - np.exp(-t/t1)
-    exponential_2 = 1 - np.exp(-t/t2)
-    exponential_3 = 1 - np.exp(-t/t3)
-    cumulative_concentration = a0*t + a1*t1*exponential_1 + a2*t2*exponential_2 + a3*t3*exponential_3
     return radiative_efficiency * cumulative_concentration
 
 
