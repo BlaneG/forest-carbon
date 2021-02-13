@@ -80,7 +80,7 @@ def update_GWP(net_annual_carbon_flux):
     # AGWP is the cumulative radiative forcing at time t after the emission
     dynamic_GWP_100 = dynamic_GWP(100, net_annual_carbon_flux, step_size=STEP)
 
-    return "Global warming potential (100) of net carbon flux: \
+    return "Dynamic global warming potential (100) for the net carbon flux from harvesting biomass containing 1 tonne of carbon (as CO2): \
         {:.2f} kg CO2 eq".format(dynamic_GWP_100)
 
 
@@ -330,8 +330,8 @@ about = html.Div(
     children=[
         html.H1("About"),
         html.P("Humans have been dependent on biomass resources throughout our \
-            existence for food, clothing, shelter communication (paper) and \
-            sanitary products. This relationship has changed dramatically \
+            existence for food, clothing, shelter, communication (paper), \
+            sanitary products and more. This relationship has changed dramatically \
             over time from our hunter-gather ancestors to the present."),
         html.P("This site provides a high level tool to think about \
             how changing the way we use forest biomass can influence \
