@@ -1,3 +1,6 @@
+import sys
+sys.path.append('..')
+
 import numpy as np
 from scipy.integrate import trapz
 from scipy.stats import uniform
@@ -6,6 +9,7 @@ from ghg_tools.climate_metrics import (
     AGWP_CO2,
     AGWP_CH4_no_CO2,
     dynamic_GWP,
+    AGTP_CO2,
 )
 
 
@@ -30,21 +34,16 @@ def test_AGWP_CH4_no_CO2():
     assert np.isclose(AGWP_CH4_no_CO2(20)/2.09e-12, 1, atol=1e-03)
     assert np.isclose(AGWP_CH4_no_CO2(100)/2.61e-12, 1, atol=1e-03)
 
-
-def compute_expected_dynamic_GWP(
-        emission, emission_year, time_horizon, time_step):
+def test_AGTP_CO2():
     """
-    Dynamic GWP is just the GWP(time-horizon - emission_year)
-    so we can validate the implementation with an alternative
-    calculation."""
-    total_steps = int(time_horizon/time_step) + 1
-
-    emission_index = int(emission_year/time_step)
-    emission_pulse = np.zeros(total_steps)
-    emission_pulse[emission_index] = emission
-    
-    expected_GWP = AGWP_CO2(time_horizon - emission_year)/AGWP_CO2(time_horizon)
-    return expected_GWP, emission_pulse
+    References
+    ----------
+    IPCC, 2013. AR5, WG1, Chapter 8.  Appendix 8.A.
+    https://www.ipcc.ch/report/ar5/wg1/
+    """
+    assert np.isclose(6.84e-16/AGTP_CO2(20), 1, atol=1e-2)
+    assert np.isclose(6.17e-16/AGTP_CO2(50), 1, atol=1e-2)
+    assert np.isclose(5.47e-16/AGTP_CO2(100), 1, atol=1e-2)
 
 
 def test_dynamic_GWP():
@@ -97,3 +96,19 @@ def test_dynamic_GWP():
     result_is_close = np.isclose(actual_result, expected_result, rtol=1e-3)
     assert(result_is_close)
     assert(np.isclose(actual_result, 0.5, atol=1e-1))
+
+
+def compute_expected_dynamic_GWP(
+        emission, emission_year, time_horizon, time_step):
+    """
+    Dynamic GWP is just the GWP(time-horizon - emission_year)
+    so we can validate the implementation with an alternative
+    calculation."""
+    total_steps = int(time_horizon/time_step) + 1
+
+    emission_index = int(emission_year/time_step)
+    emission_pulse = np.zeros(total_steps)
+    emission_pulse[emission_index] = emission
+    
+    expected_GWP = AGWP_CO2(time_horizon - emission_year)/AGWP_CO2(time_horizon)
+    return expected_GWP, emission_pulse

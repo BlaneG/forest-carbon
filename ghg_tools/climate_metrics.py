@@ -94,6 +94,7 @@ def AGWP_CO2(t):
         + COEFFICIENT_WEIGHTS[1]*TIME_SCALES[0]*exponential_1
         + COEFFICIENT_WEIGHTS[2]*TIME_SCALES[1]*exponential_2
         + COEFFICIENT_WEIGHTS[3]*TIME_SCALES[2]*exponential_3
+        )
 
     return radiative_efficiency * cumulative_concentration
 
@@ -176,3 +177,44 @@ def dynamic_GWP(time_horizon, net_emissions, step_size=0.1, is_unit_impulse=Fals
         return dynamic_GWP_t[0]
     else:
         return dynamic_GWP_t[0] * step_size
+
+
+def AGTP_CO2(t):
+    """
+
+    References
+    ------------
+    1. 8.SM.15 in https://www.ipcc.ch/site/assets/uploads/2018/07/WGI_AR5.Chap_.8_SM.pdf
+    """
+    radiative_efficiency = get_radiative_efficiency_kg("co2")
+
+    # Short-term and long-term temperature response 
+    # (Kelvin per (Watt per m2)) to radiative forcing
+    temperature_response_coefficients = [0.631, 0.429]
+    # Temporal scaling factors (years)
+    temporal_weights = [8.4, 409.5]
+
+    temperature_response = 0
+    for j in range(2):
+        short_term_temperature_response = COEFFICIENT_WEIGHTS[0] * temperature_response_coefficients[j]
+        temporal_weight_1 = np.exp(-t/temporal_weights[j])
+        weighted_short_term_temperature_response = short_term_temperature_response * (1 - temporal_weight_1)
+
+        weighted_long_term_temperature_response = 0
+        for i in range(3):
+            temporal_weight_2_linear = TIME_SCALES[i] / (TIME_SCALES[i] - temporal_weights[j])
+            long_term_temperature_response = COEFFICIENT_WEIGHTS[i+1] * temperature_response_coefficients[j]
+            long_term_temperature_response = long_term_temperature_response * temporal_weight_2_linear
+            temporal_weight_2_exponential = np.exp(-t/TIME_SCALES[i])
+            weighted_long_term_temperature_response += (
+                long_term_temperature_response
+                * (temporal_weight_2_exponential - temporal_weight_1)
+            )
+        
+        temperature_response += (
+            weighted_short_term_temperature_response
+            + weighted_long_term_temperature_response
+        )
+    return radiative_efficiency * temperature_response
+        
+            
