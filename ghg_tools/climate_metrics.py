@@ -115,7 +115,32 @@ def AGWP_CH4_no_CO2(t):
 
 
 def dynamic_GWP(time_horizon, net_emissions, step_size=0.1, is_unit_impulse=False):
-    """Computes GWP for a vector of net_emissions over a time_horizon.
+    """Computes CO2 equivalent radiative forcing for net_emissions.
+
+    Notes
+    ------------
+
+    Global Warming Potential is defined as the cumulative radiative forcing
+    of :math:`GHG_x` emitted in year = 0 over a given time-horizon 
+    (:math:`t`):
+
+    .. math:
+        GWP(t) = \frac{cumulativeRadiativeForcingGHG\_x(t)}
+                    {cumulativeRadiativeForcing\_CO2(t)}
+
+    
+    Dynamic GWP ([1]_, [2]_ [3]_, [4]_) is the cumulative radiative forcing due 
+    to annual emissions (:math:`t'`) of :math:`GHG_x` over a give time-horizon 
+    (:math:`t`) which can be expressed as:
+
+    .. math:
+        dynamicGWP_x(t, t')
+                    = {\mathbf{emission_x}(t')}\cdot{\mathbf{GWP_x}(t-t')}
+                    = \sum_{t'}{\mathbf{emission_x}(t'){\mathbf{GWP_x}(t-t')}}
+                    = \frac{
+                    \sum_{t'}{cumulativeRadiativeForcingGHG_x(t-t')}}
+                    {cumulativeRadiativeForcing_{CO2}(t)}
+
 
     Parameters
     ---------------
@@ -141,10 +166,10 @@ def dynamic_GWP(time_horizon, net_emissions, step_size=0.1, is_unit_impulse=Fals
 
     References
     --------------
-    Fearnside et al. 2000.  https://link.springer.com/article/10.1023/A:1009625122628
-    Moura Costa et al. 2000.  https://link.springer.com/article/10.1023/A:1009697625521
-    Levassuer et al. 2010.  https://pubs.acs.org/doi/10.1021/es9030003
-    Cherubini et al. 2011.  https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.1757-1707.2011.01102.x
+    .. [1] Fearnside et al. 2000.  https://link.springer.com/article/10.1023/A:1009625122628
+    .. [2] Moura Costa et al. 2000.  https://link.springer.com/article/10.1023/A:1009697625521
+    .. [3] Levassuer et al. 2010.  https://pubs.acs.org/doi/10.1021/es9030003
+    .. [4] Cherubini et al. 2011.  https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.1757-1707.2011.01102.x
 
 
     """
