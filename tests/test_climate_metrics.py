@@ -1,5 +1,5 @@
-import sys
-sys.path.append('..')
+# import sys
+# sys.path.append('..')
 
 import numpy as np
 from scipy.integrate import trapz
@@ -10,6 +10,8 @@ from ghg_tools.climate_metrics import (
     AGWP_CH4_no_CO2,
     dynamic_GWP,
     AGTP_CO2,
+    AGWP_N2O,
+    AGTP_non_CO2,
 )
 
 
@@ -34,6 +36,12 @@ def test_AGWP_CH4_no_CO2():
     assert np.isclose(AGWP_CH4_no_CO2(20)/2.09e-12, 1, atol=1e-03)
     assert np.isclose(AGWP_CH4_no_CO2(100)/2.61e-12, 1, atol=1e-03)
 
+
+def test_AGWP_N2O():
+    assert np.isclose(AGWP_N2O(20)/6.58e-12, 1, atol=1e-03)
+    assert np.isclose(AGWP_N2O(100)/2.43e-11, 1, atol=1e-03)
+
+
 def test_AGTP_CO2():
     """
     References
@@ -44,6 +52,19 @@ def test_AGTP_CO2():
     assert np.isclose(6.84e-16/AGTP_CO2(20), 1, atol=1e-2)
     assert np.isclose(6.17e-16/AGTP_CO2(50), 1, atol=1e-2)
     assert np.isclose(5.47e-16/AGTP_CO2(100), 1, atol=1e-2)
+
+
+def test_AGTP_non_CO2():
+    """
+    References
+    ----------
+    IPCC, 2013. AR5, WG1, Chapter 8.  Appendix 8.A.
+    https://www.ipcc.ch/report/ar5/wg1/
+    """
+    assert np.isclose(4.62e-14/AGTP_non_CO2('ch4', 20), 1, atol=1e-2)
+    assert np.isclose(2.34e-15/AGTP_non_CO2('ch4', 100), 1, atol=1e-2)
+    assert np.isclose(1.89e-13/AGTP_non_CO2('n2o', 20), 1, atol=1e-2)
+    assert np.isclose(1.28e-13/AGTP_non_CO2('n2o', 100), 1, atol=1e-2)
 
 
 def test_dynamic_GWP():
@@ -59,6 +80,7 @@ def test_dynamic_GWP():
     actual_GWP_0 = dynamic_GWP(
         time_horizon,
         emission_pulse,
+        'co2',
         time_step,
         is_unit_impulse=True)
     result_0_isclose = np.isclose(expected_GWP_0, actual_GWP_0, rtol=1e-4)
@@ -72,6 +94,7 @@ def test_dynamic_GWP():
     actual_GWP_25 = dynamic_GWP(
         time_horizon,
         emission_pulse,
+        'co2',
         time_step,
         is_unit_impulse=True)
     result_25_isclose = np.isclose(expected_GWP_25, actual_GWP_25, rtol=1e-4)
@@ -83,6 +106,7 @@ def test_dynamic_GWP():
     actual_result = dynamic_GWP(
             time_horizon,
             emissions,
+            'co2',
             time_step,
             is_unit_impulse=False)
 
