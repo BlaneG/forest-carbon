@@ -2,7 +2,7 @@ from typing import Tuple
 
 import numpy as np
 
-from ghg_tools.forest_carbon import CarbonFlux
+from forest_carbon import CarbonFlux
 
 
 # Initialization
