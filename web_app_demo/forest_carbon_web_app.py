@@ -45,25 +45,33 @@ GWP_explanation = html.Div(
         "."]
 )
 
-carbon_balance_figure = html.Div(
-            id='right-column',
+carbon_balance_html = [
+    html.H3("Cumulative carbon emissions and removals."),
+    html.P(
+        "By changing how biomass is used, this can influence the \
+        area under the 'net C flux' curve. The area under this \
+        curve represents the additional carbon that is \
+        temporarily added to the atmosphere.  We can estimate the \
+        climate impact of this temporary increase in atmospheric \
+        carbon using a modification to the well-known global \
+        warming potential (GWP) method which is measured in \
+        units of CO2 equivalents. Strategies that store more \
+        carbon result in a net GWP benefit."),
+    GWP_calculation,
+    dcc.Graph(id='carbon-balance-figure'),
+    GWP_explanation
+]
+
+radiative_forcing_html = []
+temperature_response_html = []
+figures_children = carbon_balance_html\
+    + radiative_forcing_html\
+    + temperature_response_html
+
+figures_div = html.Div(
+            id='figures-div',
             className="eight columns",
-            children=[
-                html.H3("Cumulative carbon emissions and removals."),
-                html.P(
-                    "By changing how biomass is used, this can influence the \
-                    area under the 'net C flux' curve. The area under this \
-                    curve represents the additional carbon that is \
-                    temporarily added to the atmosphere.  We can estimate the \
-                    climate impact of this temporary increase in atmospheric \
-                    carbon using a modification to the well-known global \
-                    warming potential (GWP) method which is measured in \
-                    units of CO2 equivalents. Strategies that store more \
-                    carbon result in a net GWP benefit."),
-                GWP_calculation,
-                dcc.Graph(id='carbon-balance-figure'),
-                GWP_explanation
-                    ])
+            children=figures_children)
 
 
 ########################################
@@ -354,18 +362,24 @@ about = html.Div(
 ####################################
 # main page layout
 ###################################
+style_defaults = {'width': '90%', 'margin': 'auto'}
 main_page = html.Div([
 
-    html.H1("Above ground forest carbon dynamics from harvesting."),
+    html.H1(
+        "Above ground forest carbon dynamics from harvesting.",
+        style=style_defaults),
     html.H3(
         "Explore how re-growth rates and product \
                 lifetimes can affect carbon emissions.",
-        style={'border-top': 'double'},),
-    html.Div([distribution_selections], className='row', style={'border-bottom': 'double'}),
+        style={'border-top': 'double', **style_defaults},),
+    html.Div(
+        [distribution_selections],
+        className='row',
+        style={'border-bottom': 'double', **style_defaults}),
     html.Div([
         transfer_coefficients_input,
-        carbon_balance_figure,
-        ], className='row'),
+        figures_div,
+        ], className='row', style=style_defaults),
     html.Br(),
     # Hidden divs for caching data.
     html.Div(id='annual-carbon-flux', style={'display': 'none'}),
