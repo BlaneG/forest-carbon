@@ -355,17 +355,19 @@ about = html.Div(
 # main page layout
 ###################################
 main_page = html.Div([
+
     html.H1("Above ground forest carbon dynamics from harvesting."),
+    html.H3(
+        "Explore how re-growth rates and product \
+                lifetimes can affect carbon emissions.",
+        style={'border-top': 'double'},),
+    html.Div([distribution_selections], className='row', style={'border-bottom': 'double'}),
     html.Div([
         transfer_coefficients_input,
         carbon_balance_figure,
         ], className='row'),
     html.Br(),
-    html.H3(
-        "Explore how re-growth rates and product \
-                lifetimes can affect carbon emissions.",
-        style={'border-top': 'double'},),
-    html.Div([distribution_selections], className='row'),
+    # Hidden divs for caching data.
     html.Div(id='annual-carbon-flux', style={'display': 'none'}),
     html.Div(id='transfer-coefficients', style={'display': 'none'}),
     html.Div(id='transfer-coefficient-validation', style={'display': 'none'})
