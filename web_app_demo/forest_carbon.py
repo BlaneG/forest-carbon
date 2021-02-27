@@ -145,7 +145,7 @@ class CarbonModel():
             go.Scatter(
                 x=self.x,
                 y=self.net_cumulative_carbon_flux,
-                name='Net C flux',
+                name='Net CO2 flux',
                 marker_color='black',
                 line_dash='dash',
                 fill='tozeroy',
