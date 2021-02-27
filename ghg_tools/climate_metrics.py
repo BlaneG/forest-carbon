@@ -90,8 +90,13 @@ def impulse_response_function(t, ghg):
         return np.exp(-t/life_time[ghg.lower()])
 
 
-def instantaneous_radiative_forcing_per_kg(t, ghg):
+def radiative_forcing_per_kg(t, ghg):
     """Computes the radiative forcing at time `t` for a GHG emission at time 0.
+
+    Parameters
+    --------------
+    t : array_like
+        Time at which radiative forcing is computed.
     """
     if ghg.lower()=='co2':
         radiative_efficiency = _get_radiative_efficiency_kg(ghg)
@@ -104,6 +109,48 @@ def instantaneous_radiative_forcing_per_kg(t, ghg):
         radiative_efficiency = _N2O_radiative_efficiency_after_methane_adjustment()
 
     return radiative_efficiency * impulse_response_function(t, ghg)
+
+
+def radiative_forcing_from_emissions_scenario(time_horizon, emissions, ghg, step_size, mode='full'):
+    """
+    Parameters
+    ---------------
+    time_horizon : int
+        Time period over which radiative forcing is computed for `emissions`.
+    emissions : array_like
+        GHG emissions (kg) at each time step.
+    ghg : str
+    step_size : float
+        step_size for emissions to create a time index (`t`)
+    mode : {'full', 'valid'}, optional
+        mode passed to np.convolve.
+        'full':
+            Use full to get the temporal change in radiative forcing
+            from 0-`time_horizon`.
+            Output shape is `len(time_horizon) + len(emissions) + 1`.
+        'same':
+            Use to get the radiative forcing at `time_horizon`.
+            Output shape is `max(len(time_horizon), len(emissions))`.
+
+    Returns
+    ---------------
+    ndarray
+    """
+    t = np.arange(0, time_horizon+step_size, step_size)
+    assert len(t) >= len(emissions)
+    rf = radiative_forcing_per_kg(t, ghg)
+    steps = int(time_horizon/step_size)
+    return _convolve_metric(steps, emissions, rf, mode)
+
+
+def _convolve_metric(steps, emissions, metric, mode):
+    if mode=='full':
+        return np.convolve(emissions, metric, mode=mode)[0:steps+1]
+    elif mode=='valid':
+        return np.convolve(emissions, metric, mode=mode)
+    else:
+        raise ValueError(f'Received invalid mode value: {mode}')
+
 
 
 def AGWP_CO2(t):
@@ -186,25 +233,18 @@ def AGWP(ghg, t):
         raise NotImplementedError(f'AGWP methods have not been implemented for {ghg}')
 
 
-def dynamicAGWP(net_emissions, ghg, time_horizon, step_size, mode='valid'):
+def dynamic_AGWP(time_horizon, net_emissions, ghg, step_size, mode='valid'):
     """
     """
     t = np.arange(0, time_horizon+step_size, step_size)
-    AGWP_GHG = AGWP(ghg, t)
-    # A convolution: flip AGWP, multiple the two vectors and sum the result
-    # Technically we are simplying multiplying AGWP_100 to net emissions from
-    # year 0, multiplying AGWP_99 to net emissions from year 1 and so on and
-    # then summing the result to compute the total radiative forcing due
-    # to the net emission flux over the time horizon.
-    if len(net_emissions) < len(t):
-        raise ValueError(
-            f"Shapes not aligned {net_emissions.shape}, {t.shape}.")
-    dynamic_AGWP_t = convolve(
-        net_emissions[0:len(t)+1],
-        AGWP_GHG[0:len(t)+1],
-        mode=mode)
-    return dynamic_AGWP_t
 
+    if len(t) < len(net_emissions):
+        raise ValueError(
+            f"Expected time axis to always be larger than net_emissions {net_emissions.shape}, {t.shape}.")
+
+    AGWP_GHG = AGWP(ghg, t)
+    steps = int(time_horizon/step_size)
+    return _convolve_metric(steps, net_emissions, AGWP_GHG, mode=mode)
 
 def dynamic_GWP(time_horizon, net_emissions, ghg, step_size=0.1, is_unit_impulse=False):
     """Computes CO2 equivalent radiative forcing for net_emissions.
@@ -265,7 +305,7 @@ def dynamic_GWP(time_horizon, net_emissions, ghg, step_size=0.1, is_unit_impulse
 
 
     """
-    dynamic_AGWP_GHG = dynamicAGWP(net_emissions, ghg, time_horizon, step_size)
+    dynamic_AGWP_GHG = dynamic_AGWP(time_horizon, net_emissions, ghg, step_size)
     # A step of 0.1 is recommended to reduce the integration error
     t = np.arange(0, time_horizon+step_size, step_size)
     # AGWP for each time step
@@ -375,15 +415,36 @@ def GTP(t, ghg) -> float:
     return AGTP(ghg, t)/AGTP_CO2(t)
 
 
-def temperature_response_at_t(ghg, emissions, t, step):
+def temperature_response(time_horizon, emissions, ghg, step_size, mode='valid'):
     """
-    The temperature change at time `t` due to an `emissions` vector.
+    Global average surface temperature change due to an `emissions` vector.
+
+    Parameters
+    ------------------
+    time_horizon : int
+        The time over which the temperature response is computed.
+    ghg : str
+    emissions : ndarray
+        Emissions in kg of a `ghg`.
+    step_size : float or int
+        The step size used to generate the time axis.
+    mode : {'full' or 'valid'}, optional
+        'full':
+            This provides the full temporal profile of the temperature response
+            over the time 0-time_horizon.
+        'valid':
+            This provides the temperature response from the emission vector
+            at `time_horizon`.
+
 
     References
         .. [1] Equation 8.1 in https://www.ipcc.ch/site/assets/uploads/2018/02/WG1AR5_Chapter08_FINAL.pdf
     """
-    t = np.arange(0, t+step, step)
-    assert len(emissions) == len(t), "Expected emissions and t to have same length."
-    return np.dot(emissions, np.flip(AGTP(ghg, t)))
-
+    t = np.arange(0, time_horizon+step_size, step_size)
+    AGTP_GHG = AGTP(ghg, t)
+    if len(t) < len(emissions):
+        raise ValueError("Expected time vector to be longer than the emissions vector")
+    # return np.dot(emissions, np.flip(AGTP(ghg, t)))
+    steps = int(time_horizon/step_size)
+    return _convolve_metric(steps, emissions, AGTP_GHG, mode)
 
