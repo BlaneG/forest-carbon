@@ -9,10 +9,19 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 
+from figures import (
+    radiative_forcing_plot,
+    temperature_response_plot
+)
 from forest_carbon import CarbonModel
-from ghg_tools.climate_metrics import dynamic_GWP
-
 from forest_carbon_model import generate_flux_data, INITIAL_CARBON, lifetimes, STEP
+from ghg_tools.climate_metrics import (
+    dynamic_AGWP,
+    dynamic_GWP,
+    temperature_response,
+    radiative_forcing_from_emissions_scenario
+)
+
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -46,24 +55,36 @@ GWP_explanation = html.Div(
 )
 
 carbon_balance_html = [
-    html.H3("Cumulative carbon emissions and removals."),
+    html.H3("Cumulative carbon emissions and removals"),
     html.P(
-        "By changing how biomass is used, this can influence the \
-        area under the 'net C flux' curve. The area under this \
-        curve represents the additional carbon that is \
-        temporarily added to the atmosphere.  We can estimate the \
+        "Changing how biomass is used affects the \
+        area under the 'Net CO2 flux' curve which \
+        represents carbon that has \
+        temporarily been added to the atmosphere.  We can estimate the \
         climate impact of this temporary increase in atmospheric \
         carbon using a modification to the well-known global \
         warming potential (GWP) method which is measured in \
         units of CO2 equivalents. Strategies that store more \
-        carbon result in a net GWP benefit."),
+        carbon can reduce the climate effect measured using GWP."),
     GWP_calculation,
     dcc.Graph(id='carbon-balance-figure'),
     GWP_explanation
 ]
 
-radiative_forcing_html = []
-temperature_response_html = []
+radiative_forcing_html = [
+    html.H3("Radiative forcing from net emissions and removals"),
+    html.P(
+        'The radiative forcing response represents the change\
+         in the planetary energy balance, measured at the top\
+         tropopause, in response to annual CO2 emissions and removals.'),
+    dcc.Graph(id='radiative-forcing-figure')]
+temperature_response_html = [
+    html.H3("Temperature response to net emissions and removals"),
+    html.P(
+        'The temperature response represents the change\
+         in the average surface temperature in response\
+         to annual CO2 emissions and removals.'),
+    dcc.Graph(id='temperature-response-figure')]
 figures_children = carbon_balance_html\
     + radiative_forcing_html\
     + temperature_response_html
@@ -257,6 +278,31 @@ def validate_transfer_coefficients(
                     ])
 
 
+
+@app.callback(
+    Output(component_id='radiative-forcing-figure', component_property='figure'),
+    Input(component_id='annual-carbon-flux', component_property='children'),
+)
+def update_radiative_forcing_graph(annual_carbon_flux):
+    annual_carbon_flux = json.loads(annual_carbon_flux)
+    rf = radiative_forcing_from_emissions_scenario(
+        time_horizon=120,
+        emissions=annual_carbon_flux[0:1201], ghg='co2', step_size=0.1, mode='full')
+    fig = radiative_forcing_plot(rf, np.arange(0, 120.1, 0.1))
+    return fig
+
+
+@app.callback(
+    Output(component_id='temperature-response-figure', component_property='figure'),
+    Input(component_id='annual-carbon-flux', component_property='children'),
+)
+def update_radiative_forcing_graph(annual_carbon_flux):
+    annual_carbon_flux = json.loads(annual_carbon_flux)
+    rf = temperature_response(
+        time_horizon=120,
+        emissions=annual_carbon_flux[0:1201], ghg='co2', step_size=0.1, mode='full')
+    fig = temperature_response_plot(rf, np.arange(0, 120.1, 0.1))
+    return fig
 #############################
 # updating distributions
 #############################
@@ -366,7 +412,18 @@ style_defaults = {'width': '90%', 'margin': 'auto'}
 main_page = html.Div([
 
     html.H1(
-        "Above ground forest carbon dynamics from harvesting.",
+        "Above ground forest carbon dynamics after harvesting",
+        style=style_defaults),
+    html.P(
+        'Harvesting a forest transfers carbon stored in biomass into harvest residues,\
+         products and the atmosphere.  Harvesting also creates an opening in\
+         the forest canopy providing light that stimulates new growth.\
+         Human activities that, for example, change the ratio of carbon\
+         stored in long-lived products or alter the growth-rate of forests\
+         can affect the carbon balance between the atmosphere, forest\
+         ecosystems and the anthroposphere.  This page is intended to\
+         help illustrate these dynamics and how they can affect different\
+         climate metrics.',
         style=style_defaults),
     html.H3(
         "Explore how re-growth rates and product \
