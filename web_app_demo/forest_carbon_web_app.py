@@ -1,6 +1,7 @@
 import json
 
 import sys
+from dash_bootstrap_components._components.Tooltip import Tooltip
 sys.path.append('..')
 
 import numpy as np
@@ -58,8 +59,10 @@ GWP_explanation = html.Div(
 )
 
 carbon_balance_html = [
-    html.H3("Cumulative carbon emissions and removals"),
-    html.P(
+    html.H5(
+        "Cumulative carbon emissions and removals",
+        id='figure-section-header'),
+    dbc.Tooltip(
         "Changing how biomass is used affects the \
         area under the 'Net CO2 flux' curve which \
         represents carbon that has \
@@ -68,7 +71,9 @@ carbon_balance_html = [
         carbon using a modification to the well-known global \
         warming potential (GWP) metric which is measured in \
         units of CO2 equivalents. Strategies that store more \
-        carbon can reduce the climate effect measured using GWP."),
+        carbon can reduce the climate effect measured using GWP.",
+        target='figure-section-header'
+    ),
     GWP_calculation,
     dcc.Graph(id='carbon-balance-figure'),
     GWP_explanation
@@ -92,9 +97,8 @@ figures_children = carbon_balance_html\
     + radiative_forcing_html\
     + temperature_response_html
 
-figures_div = html.Div(
+figures_div = dbc.Col(
             id='figures-div',
-            className="eight columns",
             children=figures_children)
 
 
@@ -115,113 +119,6 @@ def update_GWP(net_annual_carbon_flux):
         "Dynamic global warming potential (100) for the net carbon flux \
          from harvesting biomass containing 0.273 tonnes of carbon \
          (equivalent to 1 tonne CO2): {:.2f} kg CO2 eq".format(dynamic_GWP_100))
-
-
-##############################
-# transfer_coefficients inputs
-##############################
-TC_row_1 = html.Div(
-    className='row',
-    children=[
-        html.Div(
-            className='six columns',
-            children=[
-                html.P('Harvest residue decay:',
-                       style={'font-weight': 'bold'}),
-                dcc.Input(
-                    id='biomass-decay-transfer',
-                    placeholder='Enter a value between 0-1...',
-                    type='number',
-                    min=0,
-                    max=1,
-                    step=0.01,
-                    value=str(DECAY_TC)
-                )
-                ]),
-        html.Div(
-            className='six columns',
-            children=[
-                html.P('Long-lived products:', style={'font-weight': 'bold'}),
-                dcc.Input(
-                    id='long-lived-products-transfer',
-                    placeholder='Enter a value between 0-1...',
-                    type='number',
-                    min=0,
-                    max=1,
-                    step=0.01,
-                    value=LL_PRODUCTS_TC
-                )
-                ])
-    ])
-
-TC_row_2 = html.Div(
-    className='row',
-    children=[
-        html.Div(
-            className='six columns',
-            children=[
-                html.P('Short-lived products:', style={'font-weight': 'bold'}),
-                dcc.Input(
-                    id='short-lived-products-transfer',
-                    placeholder='Enter a value between 0-1...',
-                    type='number',
-                    min=0,
-                    max=1,
-                    step=0.01,
-                    value=SL_PRODUCTS_TC
-                )
-                ]),
-        html.Div(
-            className='six columns',
-            children=[
-                html.P('Bioenergy:', style={'font-weight': 'bold'}),
-                dcc.Input(
-                    id='bioenergy-transfer',
-                    placeholder='Enter a value between 0-1...',
-                    type='number',
-                    min=0,
-                    max=1,
-                    step=0.01,
-                    value=BIOENERGY_TC
-                )
-            ])
-    ])
-
-transfer_coefficients_input = html.Div(
-    className='four columns',
-    style={'border-right': 'double', 'padding-right': '0.5em'},
-    children=[
-        html.H3(
-            "Explore how using biomass affects carbon \
-                emissions.",
-            ),
-        html.P('When trees are harvested, biomass \
-            is transferred to different \'pools\' including harvest residues\
-            and products like paper and lumber used in buildings.'),
-        html.H6('Harvested biomass transfers'),
-        html.P('The values below represent the ratio of harvested biomass \
-               transferred to different \'pools\'. Increasing the ratio \
-                of biomass transferred to longer storage pools helps to \
-                reduce the amount of carbon emitted to the atmosphere.'),
-        html.P('Values below must sum to 1. Hit the "Update" button below when all \
-               transfer coefficients have been updated.',
-               style={'padding-top': '1em'}),
-        TC_row_1,
-        TC_row_2,
-        html.Div([
-            html.Button(
-                'Update', id='update-TCs-button',
-                n_clicks=0,
-                style={'background-color': 'black', 'color': 'white'}),
-            ],
-            style={'padding-top': '1em', 'text-align': 'center'}),
-        html.P(id='validation-text', style={'color': 'red'}),
-        dcc.ConfirmDialog(
-            id='validate-dialog',
-            message='Input Error.  Transfer coefficients must sum to 1.')
-        ],
-
-)
 
 
 @app.callback(
@@ -307,7 +204,7 @@ def update_radiative_forcing_graph(annual_carbon_flux):
     fig = temperature_response_plot(rf, np.arange(0, 120.1, 0.1))
     return fig
 #############################
-# updating distributions
+# Updating half-lives
 #############################
 
 def make_slider_makers(min, max, step_size):
@@ -397,17 +294,135 @@ long_lived_layout = dbc.Col(dbc.FormGroup([
 ]))
 
 half_lives = html.Div([
-    html.H5("Carbon transfer half-lives (years)"),
-    html.P(
+    html.H5(
+        "Carbon transfer half-lives (years)",
+        id='carbon-transfer-hovertext'
+    ),
+    dbc.Tooltip(
         'Explore how re-growth rates and product lifetimes can affect\
          carbon emissions.Half-lives describe the time it takes for half\
          of the carbon to \
          transfer into or out of a carbon pool. For example, the half-life\
          for forests is the time it takes to absorb 50% of the max potential\
-         carbon stock of the forest ecosystem.'),
+         carbon stock of the forest ecosystem.',
+        target="carbon-transfer-hovertext",),
     dbc.Row([regrowth_layout, biomass_decay_layout], form=True),
     dbc.Row([short_lived_layout, long_lived_layout], form=True)
 ], style={'border-bottom': 'double', **style_defaults})
+
+
+##############################
+# Transfer_coefficients inputs
+##############################
+TC_row_1 = dbc.Row(
+    children=[
+        dbc.Col(
+            children=[
+                html.P('Harvest residue decay:',
+                       style={'font-weight': 'bold'}),
+                dcc.Input(
+                    id='biomass-decay-transfer',
+                    placeholder='Enter a value between 0-1...',
+                    type='number',
+                    min=0,
+                    max=1,
+                    step=0.01,
+                    value=str(DECAY_TC)
+                )
+                ]),
+        dbc.Col(
+            children=[
+                html.P('Long-lived products:', style={'font-weight': 'bold'}),
+                dcc.Input(
+                    id='long-lived-products-transfer',
+                    placeholder='Enter a value between 0-1...',
+                    type='number',
+                    min=0,
+                    max=1,
+                    step=0.01,
+                    value=LL_PRODUCTS_TC
+                )
+                ])
+    ])
+
+TC_row_2 = dbc.Row(
+    children=[
+        dbc.Col(
+            children=[
+                html.P('Short-lived products:', style={'font-weight': 'bold'}),
+                dcc.Input(
+                    id='short-lived-products-transfer',
+                    placeholder='Enter a value between 0-1...',
+                    type='number',
+                    min=0,
+                    max=1,
+                    step=0.01,
+                    value=SL_PRODUCTS_TC
+                )
+                ]),
+        dbc.Col(
+            children=[
+                html.P('Bioenergy:', style={'font-weight': 'bold'}),
+                dcc.Input(
+                    id='bioenergy-transfer',
+                    placeholder='Enter a value between 0-1...',
+                    type='number',
+                    min=0,
+                    max=1,
+                    step=0.01,
+                    value=BIOENERGY_TC
+                )
+            ])
+    ])
+
+
+transfer_coefficients = html.Div([
+    html.H5(
+        ['Fraction of harvested biomass trasnferred to different pools'],
+        id='transfer-coefficient-hovertext'),
+    dbc.Tooltip(
+        'When trees are harvested, biomass \
+        is transferred to different \'pools\' including harvest residues\
+        and products like paper and lumber used in buildings.'
+        'The values below represent the ratio of harvested biomass \
+            transferred to different \'pools\'. Increasing the ratio \
+            of biomass transferred to longer storage pools helps to \
+            reduce the amount of carbon emitted to the atmosphere.',
+        target='transfer-coefficient-hovertext',
+        style={}
+    ),
+    html.P('Values below must sum to 1. Hit the "Update" button below when all \
+            transfer coefficients have been updated.',
+            style={'padding-top': '1em'}),
+    TC_row_1,
+    TC_row_2,
+    html.Div([
+        html.Button(
+            'Update', id='update-TCs-button',
+            n_clicks=0,
+            style={'background-color': 'black', 'color': 'white'}
+            ),
+        ],
+        style={'padding-top': '1em', 'text-align': 'center'}),
+    html.P(id='validation-text', style={'color': 'red'}),
+    dcc.ConfirmDialog(
+        id='validate-dialog',
+        message='Input Error.  Transfer coefficients must sum to 1.')
+]
+)
+
+user_inputs = dbc.Col(
+    width=5,
+    style={'border-right': 'double', 'padding-right': '0.5em'},
+    children=[
+        html.H4(
+            "Explore how human activities can affect carbon emissions and removals.",
+            ),
+        half_lives,
+        transfer_coefficients
+        ],
+
+)
 
 
 ####################################
@@ -450,21 +465,23 @@ main_page = html.Div([
         "Above ground forest carbon dynamics after harvesting",
         style=style_defaults),
     html.P(
-        'Harvesting a forest transfers carbon stored in biomass into harvest residues,\
-         products and the atmosphere.  Harvesting also creates an opening in\
+        'When trees are harvested, biomass is transferred to different\
+         \'pools\' including harvest residues, products like paper\
+         and lumber used in buildings, and to the atmosphere (burning\
+         harvest slash).'
+        ' Harvesting also creates an opening in\
          the forest canopy providing light that stimulates new growth.\
          Human activities that, for example, change the ratio of carbon\
          stored in long-lived products or alter the growth-rate of forests\
          can affect the carbon balance between the atmosphere, forest\
-         ecosystems and the anthroposphere.  This page is intended to\
-         help illustrate these dynamics and how they can affect different\
-         climate metrics.',
+         ecosystems and the anthroposphere.  This page allows you to\
+         interactively explore how human activities can influence carbon\
+         dynamics for managed forests and different climate metrics.',
         style=style_defaults),
-    half_lives,
-    html.Div([
-        transfer_coefficients_input,
+    dbc.Row([
+        user_inputs,
         figures_div,
-        ], className='row', style=style_defaults),
+        ], style=style_defaults),
     html.Br(),
     # Hidden divs for caching data.
     html.Div(id='annual-carbon-flux', style={'display': 'none'}),
