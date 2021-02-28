@@ -7,6 +7,7 @@ import numpy as np
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 
 from figures import (
@@ -23,7 +24,9 @@ from ghg_tools.climate_metrics import (
 )
 
 
+style_defaults = {'width': '90%', 'margin': 'auto'}
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+external_stylesheets = [dbc.themes.LITERA]
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 server = app.server  # required for Heroku deployment
@@ -63,7 +66,7 @@ carbon_balance_html = [
         temporarily been added to the atmosphere.  We can estimate the \
         climate impact of this temporary increase in atmospheric \
         carbon using a modification to the well-known global \
-        warming potential (GWP) method which is measured in \
+        warming potential (GWP) metric which is measured in \
         units of CO2 equivalents. Strategies that store more \
         carbon can reduce the climate effect measured using GWP."),
     GWP_calculation,
@@ -189,14 +192,14 @@ transfer_coefficients_input = html.Div(
     style={'border-right': 'double', 'padding-right': '0.5em'},
     children=[
         html.H3(
-            "Explore how changing the way biomass is used affects carbon \
+            "Explore how using biomass affects carbon \
                 emissions.",
             ),
         html.P('When trees are harvested, biomass \
             is transferred to different \'pools\' including harvest residues\
-            and products like paper and lumber used buildings.'),
+            and products like paper and lumber used in buildings.'),
         html.H6('Harvested biomass transfers'),
-        html.P('These values represent the ratio of harvested biomass \
+        html.P('The values below represent the ratio of harvested biomass \
                transferred to different \'pools\'. Increasing the ratio \
                 of biomass transferred to longer storage pools helps to \
                 reduce the amount of carbon emitted to the atmosphere.'),
@@ -308,18 +311,10 @@ def update_radiative_forcing_graph(annual_carbon_flux):
 #############################
 
 def make_slider_makers(min, max, step_size):
-    return {x: f'{x} years' for x in range(min, max+1, step_size)}
+    return {x: f'{x}' for x in range(min, max+1, step_size)}
 
 
-distribution_selections = html.Div(
-    className='row',
-    children=[
-        html.Div(
-            className="six columns",
-            children=[
-                dcc.Markdown('**Mean age of managed forest** (e.g. changing growth rate by \
-                    fertilization, brush clearing and improved re-planting):'),
-                dcc.Slider(
+regrowth_slider = dcc.Slider(
                     id='regrowth-slider',
                     min=lifetimes['MEAN_FOREST']-5,
                     max=lifetimes['MEAN_FOREST']+5,
@@ -328,10 +323,9 @@ distribution_selections = html.Div(
                     marks=make_slider_makers(
                         lifetimes['MEAN_FOREST']-5,
                         lifetimes['MEAN_FOREST']+5, 5)
-                ),
-                html.Br(),
-                dcc.Markdown('**Harvest residue decay half-life**:'),
-                dcc.Slider(
+                )
+
+biomass_decay_slider = dcc.Slider(
                     id='biomass-decay',
                     min=lifetimes['MEAN_DECAY']-5,
                     max=lifetimes['MEAN_DECAY']+5,
@@ -340,15 +334,9 @@ distribution_selections = html.Div(
                     marks=make_slider_makers(
                         lifetimes['MEAN_DECAY']-5,
                         lifetimes['MEAN_DECAY']+5, 2)
-                ),
-                html.Br(),
-            ]),
-        html.Div(
-            className='six columns',
-            children=[
-                dcc.Markdown('**Short-lived product half-life**: (e.g. improving \
-                    waste paper and packaging recycling rates)'),
-                dcc.Slider(
+                )
+
+short_lived_slider = dcc.Slider(
                     id='short-lived',
                     min=0,
                     max=lifetimes['MEAN_SHORT']+5,
@@ -356,12 +344,9 @@ distribution_selections = html.Div(
                     value=lifetimes['MEAN_SHORT'],
                     marks=make_slider_makers(
                         0, lifetimes['MEAN_SHORT']+5, 2),
-                ),
-                html.Br(),
-                dcc.Markdown('**Long-lived product half-life**: (e.g. increasing \
-                    the durability of wood products, and \
-                        their reuse in second generation products'),
-                dcc.Slider(
+                )
+
+long_lived_slider = dcc.Slider(
                     id='long-lived',
                     min=lifetimes['MEAN_LONG']-10,
                     max=lifetimes['MEAN_LONG']+10,
@@ -370,9 +355,59 @@ distribution_selections = html.Div(
                     marks=make_slider_makers(
                         lifetimes['MEAN_LONG']-10,
                         lifetimes['MEAN_LONG']+10, 5)
-                ),
-                html.Br(),
-            ])])
+                )
+
+
+regrowth_layout = dbc.Col(dbc.FormGroup([
+    dbc.Label("Forest re-growth", html_for="regrowth-slider"),
+    regrowth_slider,
+    dbc.FormText(
+            "e.g. changing growth rate by fertilization, brush clearing\
+             and improved re-planting",
+             color="secondary"
+        ),
+
+]))
+
+biomass_decay_layout = dbc.Col(dbc.FormGroup([
+    dbc.Label("Biomass decay", html_for="biomass-decay"),
+    biomass_decay_slider,
+    dbc.FormText(
+            'Mainly affected by climate', color="secondary"
+        ),
+]))
+
+short_lived_layout = dbc.Col(dbc.FormGroup([
+    dbc.Label("Short-lived products", html_for="short-lived"),
+    short_lived_slider,
+    dbc.FormText(
+            'e.g. improving waste paper and packaging recycling rates can extend the half-life',
+            color="secondary"
+        ),
+]))
+
+long_lived_layout = dbc.Col(dbc.FormGroup([
+    dbc.Label("Long-lived products", html_for="long-lived"),
+    long_lived_slider,
+    dbc.FormText(
+            'e.g. increasing the durability of wood products, and \
+             their reuse in second generation products',
+            color="secondary"
+        ),
+]))
+
+half_lives = html.Div([
+    html.H5("Carbon transfer half-lives (years)"),
+    html.P(
+        'Explore how re-growth rates and product lifetimes can affect\
+         carbon emissions.Half-lives describe the time it takes for half\
+         of the carbon to \
+         transfer into or out of a carbon pool. For example, the half-life\
+         for forests is the time it takes to absorb 50% of the max potential\
+         carbon stock of the forest ecosystem.'),
+    dbc.Row([regrowth_layout, biomass_decay_layout], form=True),
+    dbc.Row([short_lived_layout, long_lived_layout], form=True)
+], style={'border-bottom': 'double', **style_defaults})
 
 
 ####################################
@@ -408,7 +443,7 @@ about = html.Div(
 ####################################
 # main page layout
 ###################################
-style_defaults = {'width': '90%', 'margin': 'auto'}
+
 main_page = html.Div([
 
     html.H1(
@@ -425,14 +460,7 @@ main_page = html.Div([
          help illustrate these dynamics and how they can affect different\
          climate metrics.',
         style=style_defaults),
-    html.H3(
-        "Explore how re-growth rates and product \
-                lifetimes can affect carbon emissions.",
-        style={'border-top': 'double', **style_defaults},),
-    html.Div(
-        [distribution_selections],
-        className='row',
-        style={'border-bottom': 'double', **style_defaults}),
+    half_lives,
     html.Div([
         transfer_coefficients_input,
         figures_div,
