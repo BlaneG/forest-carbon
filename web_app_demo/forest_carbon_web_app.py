@@ -45,7 +45,7 @@ BIOENERGY_TC = (1-DECAY_TC) * 0.1
 #####################################
 GWP_calculation = html.Div(
     id='dynamic-GWP-result',
-    style={'text-align': 'center', 'font-weight': 'bold'},
+    style={'text-align': 'center'},
     )
 
 GWP_explanation = html.Div(
@@ -115,10 +115,13 @@ def update_GWP(net_annual_carbon_flux):
     net_annual_carbon_flux = json.loads(net_annual_carbon_flux)
     # AGWP is the cumulative radiative forcing at time t after the emission
     dynamic_GWP_100 = dynamic_GWP(100, net_annual_carbon_flux[0:1001], ghg='co2', step_size=STEP)
-    return html.P(
-        "Dynamic global warming potential (100) for the net carbon flux \
-         from harvesting biomass containing 0.273 tonnes of carbon \
-         (equivalent to 1 tonne CO2): {:.2f} kg CO2 eq".format(dynamic_GWP_100))
+
+    return html.Div(
+        [html.Span(
+            "Dynamic global warming potential (100) for the net carbon flux \
+             from harvesting merchantable biomass containing 1 tonne CO2: "),
+        html.Span("{:.2f} kg CO2 eq".format(dynamic_GWP_100), style={'font-weight': 'bold'})
+        ])
 
 
 @app.callback(
@@ -150,7 +153,7 @@ def update_figure(
     total_transfer = validate_transfer_coefficients(
         decay_tc, bioenergy_tc, short_products_tc, long_products_tc
     )
-    if np.isclose(total_transfer, 1):
+    if np.isclose(total_transfer/1, 1):
         data, x = generate_flux_data(
             mean_forest, mean_decay, mean_short, mean_long,
             decay_tc, bioenergy_tc, short_products_tc, long_products_tc)
