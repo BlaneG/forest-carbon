@@ -99,7 +99,7 @@ class CarbonFlux():
 
         fig = go.Figure()
         fig.add_trace(
-            go.Scatter(x=self.x, y=self.cdf*self.flow_fraction,
+            go.Scatter(x=self.x, y=self.cdf *self.flow_fraction,
                        name=self.name, marker_color=self.color))
         fig.update_layout(yaxis_title=y_label, xaxis_title='years')
 
@@ -116,13 +116,25 @@ class CarbonModel():
             time horizon for model
         name: str
         """
-        self.carbon_flux_datasets = carbon_flux_datasets
         self.x = x
         self.name = name
         self.initial_carbon = initial_carbon
+        self.carbon_flux_datasets = self._normalize_to_merchantable(carbon_flux_datasets)
         self._validate_forest_to_product_transfer_coefficients()
         self.net_cumulative_carbon_flux = self._get_net_cumulative_carbon_flux()
         self.net_annual_carbon_flux = self._get_net_annual_carbon_flux()
+
+    def _normalize_to_merchantable(self, datasets):
+        """Scaling all of the flows to 1 tonne merchantable CO2"""
+        MERCH_TC = 1-datasets['biomass_decay'].flow_fraction/self.initial_carbon
+        for key in datasets.keys():
+            if key == 'forest_regrowth':
+                datasets[key].flow_fraction *= 1/MERCH_TC/self.initial_carbon
+                # datasets[key].cdf *= 1/MERCH_TC/self.initial_carbon
+            else:
+                datasets[key].flow_fraction *= 1/MERCH_TC/self.initial_carbon
+                # datasets[key].cdf *= 1/MERCH_TC/self.initial_carbon
+        return datasets
 
     def plot_carbon_balance(self):
         """Cumulative annual carbon emissions."""
@@ -154,28 +166,30 @@ class CarbonModel():
         fig.add_trace(new_fig.data[0])
 
     def _validate_forest_to_product_transfer_coefficients(self):
-        sum_of_outputs = self.carbon_flux_datasets['biomass_decay'].flow_fraction\
-                         + self.carbon_flux_datasets['energy'].flow_fraction\
-                         + self.carbon_flux_datasets['short_lived_products'].flow_fraction\
-                         + self.carbon_flux_datasets['long_lived_products'].flow_fraction
-        assert np.isclose(sum_of_outputs, self.initial_carbon), \
-            f"transfers from forest expected to sum to {self.initial_carbon}\
-                not {sum_of_outputs}"
+        emissions = 0
+        removals = self.initial_carbon * self.carbon_flux_datasets['forest_regrowth'].flow_fraction
+        for key in self.carbon_flux_datasets.keys():
+            if key != 'forest_regrowth':
+                emissions += self.carbon_flux_datasets[key].flow_fraction
+        assert np.isclose(emissions/removals, 1), \
+            f"transfers from forest expected to sum to {removals}\
+                not {emissions}"
 
-    def _get_net_cumulative_carbon_flux(self):
+
+    def _get_net_carbon_flux(self, attr):
         net_flux = None
         for carbon_flux in self.carbon_flux_datasets.values():
+            flux = np.copy(getattr(carbon_flux, attr))
             if net_flux is None:
-                net_flux = np.copy(carbon_flux.cdf * carbon_flux.flow_fraction)
+                net_flux = flux * carbon_flux.flow_fraction
             else:
-                net_flux += carbon_flux.cdf * carbon_flux.flow_fraction
+                net_flux += flux * carbon_flux.flow_fraction
+        return net_flux
+
+    def _get_net_cumulative_carbon_flux(self):
+        net_flux = self._get_net_carbon_flux('cdf')
         return net_flux
 
     def _get_net_annual_carbon_flux(self):
-        net_flux = None
-        for carbon_flux in self.carbon_flux_datasets.values():
-            if net_flux is None:
-                net_flux = np.copy(carbon_flux.pdf * carbon_flux.flow_fraction)
-            else:
-                net_flux += carbon_flux.pdf * carbon_flux.flow_fraction
+        net_flux = self._get_net_carbon_flux('pdf')
         return net_flux
