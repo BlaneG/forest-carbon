@@ -13,7 +13,9 @@ from dash.dependencies import Input, Output, State
 
 from figures import (
     radiative_forcing_plot,
-    temperature_response_plot
+    temperature_response_plot,
+    make_summary_table,
+    plot_summary_results
 )
 from forest_carbon import CarbonModel
 from forest_carbon_model import generate_flux_data, INITIAL_CARBON, lifetimes, STEP
@@ -62,21 +64,47 @@ carbon_balance_html = [
     html.H5(
         "Cumulative carbon emissions and removals",
         id='figure-section-header'),
-    dbc.Tooltip(
-        "Changing how biomass is used affects the \
-        area under the 'Net CO2 flux' curve which \
-        represents carbon that has \
-        temporarily been added to the atmosphere.  We can estimate the \
-        climate impact of this temporary increase in atmospheric \
-        carbon using a modification to the well-known global \
-        warming potential (GWP) metric which is measured in \
-        units of CO2 equivalents. Strategies that store more \
-        carbon can reduce the climate effect measured using GWP.",
-        target='figure-section-header'
+    html.P(
+        'This figure shows cumulative carbon emissions and removals associated\
+         with a forest harvested at year 0. A more detailed explanation can be\
+         found by hovering over the sub title above.'),
+    dbc.Tooltip([html.P(
+        "Following a harvest event, we see carbon emissions\
+         from biomass used for energy and biomass left to decay\
+         at the harvest site as well as from short-lived products\
+         like paper and packaging and long-lived products like\
+         lumber used in buildings that when they are disposed of\
+         as energy or landfilled. In this example all products are\
+         assumed to be converted to CO2 at disposal but landfilled\
+         wood products appear to be very resistant to decomposition\
+         in anaerobic landfills and both paper and wood products\
+         generate CO2 as well as CH4 when they anaerobically decompose."),
+         html.P("Changing how biomass is used affects the shaded area under the\
+         'Net CO2 flux' curve which represents carbon that has temporarily\
+         been added to the atmosphere.  We can estimate the \
+         climate effect of this temporary increase in atmospheric \
+         carbon using metrics like the well-known global \
+         warming potential (GWP) which measures the cumulative radiative\
+         forcing (W/m2) effect of greenhouse gas emissions in kg CO2 eq.\
+         Strategies that store more \
+         carbon can reduce the climate effect measured using GWP.")],
+        target='figure-section-header',
+        boundaries_element='window'
     ),
     GWP_calculation,
     dcc.Graph(id='carbon-balance-figure'),
     GWP_explanation
+]
+
+summary_figures_html = [
+    html.H5("Carbon balance and carbon metric summary"),
+    html.P(
+        'This figure summarizes emissions, removals and the net carbon\
+         balance over 100 years as well as the 100 year cumulative\
+         radiative forcing (GWP in kg CO2 eq) and temperature response\
+         (GTP in kg CO2 eq). These summary results are derived from the\
+         figures below. '),
+    dcc.Graph(id='summary-figure'),
 ]
 
 radiative_forcing_html = [
@@ -86,6 +114,7 @@ radiative_forcing_html = [
          in the planetary energy balance, measured at the top\
          tropopause, in response to annual CO2 emissions and removals.'),
     dcc.Graph(id='radiative-forcing-figure')]
+
 temperature_response_html = [
     html.H3("Temperature response to net emissions and removals"),
     html.P(
@@ -93,7 +122,9 @@ temperature_response_html = [
          in the average surface temperature in response\
          to annual CO2 emissions and removals.'),
     dcc.Graph(id='temperature-response-figure')]
+
 figures_children = carbon_balance_html\
+    + summary_figures_html\
     + radiative_forcing_html\
     + temperature_response_html
 
@@ -126,6 +157,7 @@ def update_GWP(net_annual_carbon_flux):
 
 @app.callback(
     [
+        Output(component_id='summary-figure', component_property='figure'),
         Output(component_id='carbon-balance-figure', component_property='figure'),
         Output(component_id='annual-carbon-flux', component_property='children'),
         Output('validation-text', 'children'),
@@ -154,20 +186,34 @@ def update_figure(
         decay_tc, bioenergy_tc, short_products_tc, long_products_tc
     )
     if np.isclose(total_transfer/1, 1):
-        data, x = generate_flux_data(
+        flux_data, x = generate_flux_data(
             mean_forest, mean_decay, mean_short, mean_long,
             decay_tc, bioenergy_tc, short_products_tc, long_products_tc)
 
         carbon_model = CarbonModel(
-            data, x=x, name='harvest', initial_carbon=INITIAL_CARBON)
-        fig = carbon_model.plot_carbon_balance()
+            flux_data, x=x, name='harvest', initial_carbon=INITIAL_CARBON)
+        carbon_balance_fig = carbon_model.plot_carbon_balance()
         net_annual_carbon_flux = carbon_model.net_annual_carbon_flux
-        return fig, json.dumps(net_annual_carbon_flux.tolist()), '', False
+        summary_results = make_summary_table(flux_data, net_annual_carbon_flux)
+        summary_fig = plot_summary_results(summary_results)
+        return (
+            summary_fig,
+            carbon_balance_fig,
+            json.dumps(net_annual_carbon_flux.tolist()),
+            '',
+            False
+        )
 
     else:
         return_msg = f'Update transfer coefficients so they sum to 1. \
             The current sum is: {total_transfer}.'
-        return dash.no_update, dash.no_update, return_msg, True
+        return (
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            return_msg,
+            True
+        )
 
 
 def validate_transfer_coefficients(
@@ -238,12 +284,12 @@ biomass_decay_slider = dcc.Slider(
 
 short_lived_slider = dcc.Slider(
                     id='short-lived',
-                    min=0,
+                    min=1,
                     max=lifetimes['MEAN_SHORT']+5,
                     step=1,
                     value=lifetimes['MEAN_SHORT'],
                     marks=make_slider_makers(
-                        0, lifetimes['MEAN_SHORT']+5, 2),
+                        1, lifetimes['MEAN_SHORT']+5, 2),
                 )
 
 long_lived_slider = dcc.Slider(
@@ -431,8 +477,6 @@ user_inputs = dbc.Col(
 ####################################
 # About tab
 ####################################
-
-
 about = html.Div(
     style={'padding-left': '25%', 'padding-right': '25%'},
     children=[
