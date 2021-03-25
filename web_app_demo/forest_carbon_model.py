@@ -29,7 +29,7 @@ HARVEST_INDEX = int(lifetimes['HARVEST_YEAR']/STEP)
 if MANAGED:
     forest_regrowth = CarbonFlux(
         lifetimes['MEAN_FOREST'], lifetimes['MEAN_FOREST'] * 0.45, 'forest regrowth',
-        1, 1, emission=False, step_size=STEP
+        1, 1, emission=False, step_size=STEP, harvest_index=HARVEST_INDEX
         )
     INITIAL_CARBON = -forest_regrowth.cdf[HARVEST_INDEX]
 
@@ -42,7 +42,7 @@ def generate_flux_data(
         ) -> Tuple[dict, np.array]:
     forest_regrowth = CarbonFlux(
         mean_forest, mean_forest * 0.45, 'forest regrowth',
-        1, 1, emission=False, step_size=STEP
+        1, 1, emission=False, step_size=STEP, harvest_index=HARVEST_INDEX
         )
     decay = CarbonFlux(
         mean_decay, mean_decay*0.5, 'biomass decay',

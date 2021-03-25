@@ -29,6 +29,7 @@ class CarbonFlux():
             range_=(0, 120),
             emission=True,
             step_size=0.1,
+            harvest_index=None,
             ):
         """
         Parameters
@@ -49,6 +50,8 @@ class CarbonFlux():
             Whether carbon flux is an emission or an removal
         step_size : float
             Increment size for x-axis
+        harvest_index : int, optional
+            The index when harvest occurse.
         """
         self.mean = mean
         self.sd = sd
@@ -67,13 +70,47 @@ class CarbonFlux():
         self.x = np.arange(self.range_[0], self.range_[1]+step_size, step=step_size)
         a = self.mean**2/self.sd**2
         scale = self.mean/(self.mean**2/self.sd**2)
+        self.harvest_index = harvest_index
         self.pdf = gamma.pdf(x=self.x, a=a, scale=scale, loc=0)
         self.cdf = gamma.cdf(x=self.x, a=a, scale=scale, loc=0)
 
-        # emissions are positive, removals are negative
-        if not self.emission:
-            self.pdf = -self.pdf
-            self.cdf = -self.cdf
+
+    @property
+    def pdf(self):
+        return self._pdf
+
+    @pdf.setter
+    def pdf(self, new_pdf):
+        if self.emission:
+            self._pdf = new_pdf
+        else:
+            # Ignore removals after harvest index (rotation age)
+            new_pdf[self.harvest_index + 1:] = 0
+            self._pdf = -new_pdf
+
+    @property
+    def cdf(self):
+        return self._cdf
+
+    @cdf.setter
+    def cdf(self, new_cdf):
+        if self.emission:
+            self._cdf = new_cdf
+        else:
+            # Ignore removals after harvest index (rotation age)
+            new_cdf[self.harvest_index + 1:] = new_cdf[self.harvest_index]
+            self._cdf = -new_cdf
+
+    @property
+    def harvest_index(self):
+        return self._harvest_index
+        
+    @harvest_index.setter
+    def harvest_index(self, year):
+        print(year)
+        if self.emission == True and year is not None:
+            raise Exception('harvest_index can only be set when emission is False.')
+        self._harvest_index = year
 
     def plot_pdf(self):
         """
