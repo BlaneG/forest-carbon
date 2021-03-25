@@ -29,7 +29,7 @@ HARVEST_INDEX = int(lifetimes['HARVEST_YEAR']/STEP)
 if MANAGED:
     forest_regrowth = CarbonFlux(
         lifetimes['MEAN_FOREST'], lifetimes['MEAN_FOREST'] * 0.45, 'forest regrowth',
-        1, emission=False, step_size=STEP
+        1, 1, emission=False, step_size=STEP
         )
     INITIAL_CARBON = -forest_regrowth.cdf[HARVEST_INDEX]
 
@@ -42,21 +42,21 @@ def generate_flux_data(
         ) -> Tuple[dict, np.array]:
     forest_regrowth = CarbonFlux(
         mean_forest, mean_forest * 0.45, 'forest regrowth',
-        1, emission=False, step_size=STEP
+        1, 1, emission=False, step_size=STEP
         )
     decay = CarbonFlux(
         mean_decay, mean_decay*0.5, 'biomass decay',
-        INITIAL_CARBON * float(decay_tc), step_size=STEP)
+        INITIAL_CARBON, float(decay_tc), step_size=STEP)
     energy = CarbonFlux(
         1, 0.5, 'energy',
-        INITIAL_CARBON * float(bioenergy_tc), step_size=STEP)
+        INITIAL_CARBON, float(bioenergy_tc), step_size=STEP)
     short_lived = CarbonFlux(
         mean_short, mean_short*0.75, 'short-lived products',
-        INITIAL_CARBON * float(short_products_tc), step_size=STEP
+        INITIAL_CARBON, float(short_products_tc), step_size=STEP
         )
     long_lived = CarbonFlux(
         mean_long, mean_long*0.5, 'long-lived products',
-        INITIAL_CARBON * float(long_products_tc), step_size=STEP)
+        INITIAL_CARBON, float(long_products_tc), step_size=STEP)
 
     x = forest_regrowth.x
     data = {

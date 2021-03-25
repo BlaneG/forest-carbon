@@ -24,37 +24,42 @@ class CarbonFlux():
             mean,
             sd,
             name,
+            initial_carbon,
             flow_fraction,
             range_=(0, 120),
             emission=True,
-            random=False,
             step_size=0.1,
             ):
         """
         Parameters
         -----------------
         mean : float
-            geometric mean.
+            Geometric mean.
         sd : float
-            geometric standard deviation
+            Geometric standard deviation
         name : str
-            name of carbon flux
+            Name of carbon flux
+        initial_carbon : float
+            Initial carbon used to validate mass balance when combined with `flow_fraction`.
         flow_fraction : float
-            fraction of input or output carbon flow [0, 1]
+            Fraction of input or output carbon flow [0, 1]
         range_ : tuple
-            upper and lower bounds of x-axis
+            Upper and lower bounds of x-axis
         emission : bool
-            whether carbon flux is an emission or an removal
+            Whether carbon flux is an emission or an removal
         step_size : float
-            increment size for x-axis
+            Increment size for x-axis
         """
         self.mean = mean
         self.sd = sd
         self.name = name
+        self.initial_carbon = initial_carbon
         self.flow_fraction = flow_fraction
+        self.initial_carbon_stock = initial_carbon * flow_fraction
         self.range_ = range_
         self.emission = emission
         self.color = colors[self.name]
+        self.step_size = step_size
 
 
         # a step size of 1 will cause a pdf mass balance error when
@@ -82,8 +87,9 @@ class CarbonFlux():
         else:
             y_label = f'Annual C removal from {self.name}'
         fig = go.Figure()
+        annual_carbon_flux = self.pdf * self.initial_carbon_stock
         fig.add_trace(
-            go.Bar(x=self.x, y=self.pdf*self.flow_fraction,
+            go.Bar(x=self.x, y=annual_carbon_flux,
                    name=self.name, marker_color=self.color))
         fig.update_layout(
             barmode='relative', yaxis_title=y_label, xaxis_title='years')
@@ -98,8 +104,9 @@ class CarbonFlux():
             y_label = f'Cumulative C removal from {self.name}'
 
         fig = go.Figure()
+        cumulative_carbon_flux = self.cdf * self.initial_carbon_stock
         fig.add_trace(
-            go.Scatter(x=self.x, y=self.cdf *self.flow_fraction,
+            go.Scatter(x=self.x, y=cumulative_carbon_flux,
                        name=self.name, marker_color=self.color))
         fig.update_layout(yaxis_title=y_label, xaxis_title='years')
 
@@ -126,13 +133,13 @@ class CarbonModel():
 
     def _normalize_to_merchantable(self, datasets):
         """Scaling all of the flows to 1 tonne merchantable CO2"""
-        MERCH_TC = 1-datasets['biomass_decay'].flow_fraction/self.initial_carbon
+        MERCH_TC = 1-datasets['biomass_decay'].initial_carbon_stock/self.initial_carbon
         for key in datasets.keys():
             if key == 'forest_regrowth':
-                datasets[key].flow_fraction *= 1/MERCH_TC/self.initial_carbon
+                datasets[key].initial_carbon_stock = datasets[key].initial_carbon_stock * 1/MERCH_TC/self.initial_carbon
                 # datasets[key].cdf *= 1/MERCH_TC/self.initial_carbon
             else:
-                datasets[key].flow_fraction *= 1/MERCH_TC/self.initial_carbon
+                datasets[key].initial_carbon_stock = datasets[key].initial_carbon_stock * 1/MERCH_TC/self.initial_carbon
                 # datasets[key].cdf *= 1/MERCH_TC/self.initial_carbon
         return datasets
 
@@ -167,10 +174,11 @@ class CarbonModel():
 
     def _validate_forest_to_product_transfer_coefficients(self):
         emissions = 0
-        removals = self.initial_carbon * self.carbon_flux_datasets['forest_regrowth'].flow_fraction
+        removals = self.initial_carbon * self.carbon_flux_datasets['forest_regrowth'].initial_carbon_stock
+        print(removals)
         for key in self.carbon_flux_datasets.keys():
             if key != 'forest_regrowth':
-                emissions += self.carbon_flux_datasets[key].flow_fraction
+                emissions += self.carbon_flux_datasets[key].initial_carbon_stock
         assert np.isclose(emissions/removals, 1), \
             f"transfers from forest expected to sum to {removals}\
                 not {emissions}"
@@ -181,9 +189,9 @@ class CarbonModel():
         for carbon_flux in self.carbon_flux_datasets.values():
             flux = np.copy(getattr(carbon_flux, attr))
             if net_flux is None:
-                net_flux = flux * carbon_flux.flow_fraction
+                net_flux = flux * carbon_flux.initial_carbon_stock
             else:
-                net_flux += flux * carbon_flux.flow_fraction
+                net_flux += flux * carbon_flux.initial_carbon_stock
         return net_flux
 
     def _get_net_cumulative_carbon_flux(self):

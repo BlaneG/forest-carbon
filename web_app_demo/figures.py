@@ -60,7 +60,7 @@ def make_summary_table(
         index=['emissions', 'removals', 'net C balance', 'GWP', 'GTP'])
 
     for key in flux_data.keys():
-        result = np.sum(flux_data[key].pdf)*0.1*flux_data[key].flow_fraction
+        result = np.sum(flux_data[key].pdf) * flux_data[key].step_size * flux_data[key].initial_carbon_stock
         if key=='forest_regrowth':
             results.loc['removals', key] = result
         elif key in ['biomass_decay', 'energy', 'short_lived_products', 'long_lived_products']:
