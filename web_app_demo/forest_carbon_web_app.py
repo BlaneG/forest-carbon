@@ -427,7 +427,7 @@ TC_row_2 = dbc.Row(
 
 transfer_coefficients = html.Div([
     html.H5(
-        ['Fraction of harvested biomass trasnferred to different pools'],
+        ['Fraction of harvested biomass transferred to different pools'],
         id='transfer-coefficient-hovertext'),
     dbc.Tooltip(
         'When trees are harvested, biomass \
